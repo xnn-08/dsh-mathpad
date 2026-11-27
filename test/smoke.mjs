@@ -115,7 +115,7 @@ const clickCell = (glyph) => {
   dialog = render('math-symbols-panel');
 };
 const clickKey = (label) => {
-  const key = find(dialog, (node) => node.props && node.props.className === 'mss-key' && textOf(node) === label)[0];
+  const key = find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-key') && textOf(node) === label)[0];
   assert.ok(key, 'key missing: ' + label);
   key.props.onClick();
   dialog = render('math-symbols-panel');
@@ -156,8 +156,8 @@ assert.ok(versionTag, 'panel must show its version so a stale module is obvious'
 assert.ok(/^v\d+\.\d+\.\d+$/.test(textOf(versionTag)), 'version tag format, got ' + textOf(versionTag));
 
 const cells = byClass(dialog, 'mss-cell');
-assert.strictEqual(cells.length, 32, 'expected 32 symbols, got ' + cells.length);
-assert.strictEqual(byClass(dialog, 'mss-sect').length, 4, 'expected 4 sections');
+assert.strictEqual(cells.length, 39, 'expected 39 symbols, got ' + cells.length);
+assert.strictEqual(byClass(dialog, 'mss-sect').length, 5, 'expected 5 sections');
 
 // ---- sin3x: chips + digits + editable draft ------------------------------
 clickCell('sin');
@@ -193,7 +193,7 @@ trigger.props.onClick();
 dialog = render('math-symbols-panel');
 clickCell('sin');
 clickKey('3');
-clickCell(' ');
+clickKey('空格（次方）');
 clickCell('x');
 assert.strictEqual(draftValue(), 'sin3 x');
 assert.strictEqual(preview(), 'sin³(x)', 'sin3 x reads as sin³(x), got ' + preview());
@@ -211,6 +211,22 @@ const glyphs = byClass(dialog, 'mss-cell').map((node) => node.props.title);
 assert.ok(glyphs.includes('插入 ∮'), 'contour integral cell missing');
 assert.ok(glyphs.includes('插入 ∂'), 'partial derivative cell missing');
 assert.ok(!find(dialog, (node) => node.props && node.props.className === 'mss-search').length, 'search box should be gone');
+
+// ---- variables group + a–z letter strip -----------------------------------
+const titles = byClass(dialog, 'mss-cell').map((node) => node.props.title);
+assert.ok(titles.includes('插入 x'), 'variable x missing');
+assert.ok(titles.includes('插入 θ'), 'variable θ missing');
+
+find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
+dialog = render('math-symbols-panel');
+assert.strictEqual(byClass(dialog, 'mss-cell').length, 65, 'letters strip adds 26 cells');
+find(dialog, (node) => node.props && node.props.title === '插入 a' && node.props.className === 'mss-cell')[0].props.onClick();
+dialog = render('math-symbols-panel');
+assert.ok(draftValue().endsWith('a'), 'letter a inserted');
+
+find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
+dialog = render('math-symbols-panel');
+assert.strictEqual(byClass(dialog, 'mss-cell').length, 39, 'letters strip collapses again');
 
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });

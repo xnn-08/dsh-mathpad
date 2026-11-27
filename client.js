@@ -4,76 +4,102 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.1.1';
+    const VERSION = '0.2.0';
 
     // ---------------------------------------------------------------------
-    // 面板里的符号：点一下把 text 插到草稿光标处。
-    // 只保留真正会用的：基本初等函数、幂与根、积分极限、四则运算。
-    // 关系符、希腊字母、偏导这类用不到的就不放了（需要就直接在草稿里打）。
+    // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
+    // 分组按数学角色划分（变量 / 函数 / 幂与根 / 微积分 / 运算），不按“长相”。
     // ---------------------------------------------------------------------
     const GROUPS = [
       {
-        name: '基本初等函数',
+        id: 'vars',
+        name: '变量与常量',
         items: [
-          ['sin', 'sin', '正弦 sin'],
-          ['cos', 'cos', '余弦 cos'],
-          ['tan', 'tan', '正切 tan'],
-          ['cot', 'cot', '余切 cot'],
-          ['sec', 'sec', '正割 sec'],
-          ['csc', 'csc', '余割 csc'],
-          ['arcsin', 'arcsin', '反正弦'],
-          ['arccos', 'arccos', '反余弦'],
-          ['arctan', 'arctan', '反正切'],
-          ['eˣ', 'e', '指数 exp'],
-          ['ln', 'ln', '对数 log'],
-          ['xⁿ', 'x', 'x 的幂'],
+          ['x', 'x', 'x'],
+          ['y', 'y', 'y'],
+          ['z', 'z', 'z'],
+          ['a', 'a', 'a'],
+          ['b', 'b', 'b'],
+          ['n', 'n', 'n'],
+          ['t', 't', 't'],
+          ['θ', 'θ', '\\theta'],
+          ['π', 'π', '\\pi'],
+          ['e', 'e', 'e'],
+          ['∞', '∞', '\\infty'],
         ],
       },
       {
+        id: 'fn',
+        name: '函数',
+        items: [
+          ['sin', 'sin', '\\sin'],
+          ['cos', 'cos', '\\cos'],
+          ['tan', 'tan', '\\tan'],
+          ['cot', 'cot', '\\cot'],
+          ['sec', 'sec', '\\sec'],
+          ['csc', 'csc', '\\csc'],
+          ['arcsin', 'arcsin', '\\arcsin'],
+          ['arccos', 'arccos', '\\arccos'],
+          ['arctan', 'arctan', '\\arctan'],
+          ['ln', 'ln', '\\ln'],
+        ],
+      },
+      {
+        id: 'pow',
         name: '幂与根',
         items: [
-          ['x²', 'x2', '平方'],
-          ['x³', 'x3', '立方'],
-          ['√', '√', '根号 sqrt'],
-          ['(', '(', '左括号'],
-          [')', ')', '右括号'],
-          ['空格', ' ', '次方 分隔'],
+          ['x²', 'x2', 'x^{2}'],
+          ['x³', 'x3', 'x^{3}'],
+          ['√', '√', '\\sqrt'],
         ],
       },
       {
-        name: '积分与极限',
+        id: 'calc',
+        name: '微积分',
         items: [
-          ['∫', '∫', '积分 integral'],
-          ['∮', '∮', '环路积分 闭合曲线 contour'],
-          ['∂', '∂', '偏导 partial'],
-          ['d', 'd', '微分 dx'],
-          ['lim', 'lim', '极限 limit'],
-          ['→', '→', '趋于 tends to'],
-          ['π', 'π', '圆周率 pi'],
-          ['∞', '∞', '无穷 infinity'],
+          ['∫', '∫', '\\int'],
+          ['∮', '∮', '\\oint'],
+          ['∂', '∂', '\\partial'],
+          ['d', 'd', 'd'],
+          ['lim', 'lim', '\\lim'],
+          ['→', '→', '\\to'],
         ],
       },
       {
-        name: '运算',
+        id: 'ops',
+        name: '运算与括号',
         items: [
-          ['+', '+', '加'],
-          ['−', '-', '减'],
-          ['×', '*', '乘'],
-          ['÷', '/', '除'],
-          ['=', '=', '等于'],
-          ['.', '.', '小数点'],
+          ['+', '+', '+'],
+          ['−', '-', '-'],
+          ['×', '*', '\\times'],
+          ['÷', '/', '\\div'],
+          ['=', '=', '='],
+          ['(', '(', '('],
+          [')', ')', ')'],
+          ['[', '[', '['],
+          [']', ']', ']'],
         ],
       },
     ];
 
-    const ALL_ITEMS = [];
+    // 字母条：常用变量之外的 a–z，按需展开，不占常驻空间。
+    const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('').map((letter) => [letter, letter, letter]);
+
+    // 函数名用于 LaTeX 的“补空格 + 收下标”规则；长的排前面，避免 arcsin 被 sin 抢先匹配。
+    const FUNCS = GROUPS.find((group) => group.id === 'fn').items
+      .map((item) => item[1])
+      .sort((a, b) => b.length - a.length);
+
+    // 函数名已经由上面的正则处理，这里只收非函数符号，避免 \sin 被二次转义成 \\sin
+    const LATEX_SYMBOLS = [];
     for (const group of GROUPS) {
+      if (group.id === 'fn') continue;
       for (const item of group.items) {
-        ALL_ITEMS.push({ glyph: item[0], text: item[1], keys: item[2] ?? '', group: group.name });
+        if (item[2] !== item[1] && item[2] !== '') LATEX_SYMBOLS.push([item[1], item[2]]);
       }
     }
+    LATEX_SYMBOLS.sort((a, b) => b[0].length - a[0].length);
 
-    const FUNCS = ['arcsin', 'arccos', 'arctan', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'ln'];
     const SUPERSCRIPTS = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
 
     /**
@@ -108,6 +134,7 @@ window.__ModuleLoader__.load({
       text: '',
       direct: false,
       latex: false,
+      letters: false,
       chain: [],
     };
     // 草稿里最后的光标位置：点击符号时插在这里，而不是总插到末尾。
@@ -164,18 +191,13 @@ window.__ModuleLoader__.load({
     const toLatex = (raw) => {
       let out = raw;
       // 函数名：长名优先；后面紧跟字母/数字时补一个空格（\sin x 而不是 \sinx）
-      out = out.replace(/(?<!\\)(arcsin|arccos|arctan|sin|cos|tan|cot|sec|csc|ln|lim)/g,
-        (match, _name, offset, whole) => {
-          const next = whole[offset + match.length] ?? '';
-          return '\\' + match + (/[a-zA-Z0-9]/.test(next) ? ' ' : '');
-        });
-      const symbols = [
-        ['∫', '\\int'], ['∮', '\\oint'], ['∂', '\\partial'], ['π', '\\pi'], ['∞', '\\infty'],
-        ['→', '\\to'], ['√', '\\sqrt'], ['×', '\\times'], ['÷', '\\div'], ['≤', '\\le'],
-        ['≥', '\\ge'], ['≠', '\\ne'], ['≈', '\\approx'], ['±', '\\pm'], ['∑', '\\sum'],
-        ['(', '('], [')', ')'],
-      ];
-      for (const [from, to] of symbols) out = out.split(from).join(to);
+      const fnRe = new RegExp('(?<!\\\\)(' + FUNCS.join('|') + ')', 'g');
+      out = out.replace(fnRe, (match, _name, offset, whole) => {
+        const next = whole[offset + match.length] ?? '';
+        return '\\' + match + (/[a-zA-Z0-9]/.test(next) ? ' ' : '');
+      });
+      // 符号表里的映射：长的先替换，避免 x2 被 x 抢先
+      for (const [from, to] of LATEX_SYMBOLS) out = out.split(from).join(to);
       // lim 后面跟着含“→”的一段时才收进下标，避免把普通参数误当下标
       out = out.replace(/\\lim\s*([^\s$]*\\to[^\s$]*)/g, (match, sub) => '\\lim_{' + sub.replace(/\\to/g, ' \\to ') + '}');
       // √ 后面紧跟的一段收进花括号
@@ -187,7 +209,7 @@ window.__ModuleLoader__.load({
       if (actions === undefined || actions === null) return;
       let span = null;
       try { span = actions.captureInsertion(); } catch { span = null; }
-      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), chain: [] });
+      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, chain: [] });
       caretPosition = null;
     };
     const closePanel = () => {
@@ -395,6 +417,12 @@ window.__ModuleLoader__.load({
       .mss-sect + .mss-sect{border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08))}
       .mss-sname{width:84px;flex:none;font-size:11.5px;opacity:.55;padding-top:9px;line-height:1.4}
       .mss-cells{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:7px;flex:1;min-width:0}
+      .mss-cellwrap{flex:1;min-width:0}
+      .mss-letters{grid-template-columns:repeat(13, minmax(0, 1fr));gap:5px;margin-top:7px}
+      .mss-letters .mss-cell{padding:5px 2px 4px}
+      .mss-letters .mss-glyph{font-size:13px}
+      .mss-toggle .mss-glyph{font-family:inherit;font-size:12px;opacity:.8}
+      .mss-toggle .mss-code{opacity:.45}
       .mss-cell{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.1));border-radius:9px;background:transparent;
         color:inherit;padding:7px 4px 6px;text-align:center;cursor:pointer;font:inherit}
       .mss-cell:hover{border-color:var(--dsw-alias-state-business-primary, #4176e6);background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
@@ -561,9 +589,11 @@ window.__ModuleLoader__.load({
       const sourceText = state.direct ? state.chain.join('') : state.text;
       const reading = state.latex ? toLatex(sourceText) : explain(sourceText);
       const sections = GROUPS.map((group) => ({
+        id: group.id,
         name: group.name,
         items: group.items.map((item) => ({ glyph: item[0], text: item[1] })),
       }));
+      const letterCells = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
 
       const onKeyDown = (event) => {
         if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
@@ -600,20 +630,47 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'mss-close', 'aria-label': '关闭', onClick: closePanel }, '×'),
             ),
             h('div', { className: 'mss-body' },
-              sections.map((section) => h('div', { key: section.name, className: 'mss-sect' },
+              sections.map((section) => h('div', { key: section.id, className: 'mss-sect' },
                 h('div', { className: 'mss-sname' }, section.name),
-                h('div', { className: 'mss-cells' },
-                  section.items.map((item) => h('button', {
-                    key: item.glyph + item.text,
-                    type: 'button',
-                    className: 'mss-cell',
-                    title: '插入 ' + item.text,
-                    onMouseDown: keepFocus,
-                    onClick: () => insertSnippet(item.text),
-                  },
-                    h('div', { className: 'mss-glyph' }, item.glyph),
-                    h('div', { className: 'mss-code' }, item.text === ' ' ? '空格' : item.text),
-                  )),
+                h('div', { className: 'mss-cellwrap' },
+                  h('div', { className: 'mss-cells' },
+                    section.items.map((item) => h('button', {
+                      key: item.glyph + item.text,
+                      type: 'button',
+                      className: 'mss-cell',
+                      title: '插入 ' + item.text,
+                      onMouseDown: keepFocus,
+                      onClick: () => insertSnippet(item.text),
+                    },
+                      h('div', { className: 'mss-glyph' }, item.glyph),
+                      h('div', { className: 'mss-code' }, item.text === ' ' ? '空格' : item.text),
+                    )),
+                    section.id === 'vars'
+                      ? h('button', {
+                        key: 'letters-toggle',
+                        type: 'button',
+                        className: 'mss-cell mss-toggle',
+                        title: state.letters ? '收起字母条' : '展开 a–z',
+                        onMouseDown: keepFocus,
+                        onClick: () => patchPanel({ letters: !state.letters }),
+                      },
+                        h('div', { className: 'mss-glyph' }, 'a–z'),
+                        h('div', { className: 'mss-code' }, state.letters ? '收起' : '展开'),
+                      )
+                      : null,
+                  ),
+                  section.id === 'vars' && state.letters
+                    ? h('div', { className: 'mss-cells mss-letters' },
+                      letterCells.map((item) => h('button', {
+                        key: 'letter-' + item.text,
+                        type: 'button',
+                        className: 'mss-cell',
+                        title: '插入 ' + item.text,
+                        onMouseDown: keepFocus,
+                        onClick: () => insertSnippet(item.text),
+                      }, h('div', { className: 'mss-glyph' }, item.glyph))),
+                    )
+                    : null,
                 ),
               )),
             ),

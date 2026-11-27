@@ -17,7 +17,7 @@
     font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;color:var(--ink);
     display:flex;align-items:center;justify-content:center;overflow:hidden;
   }
-  .scene{position:relative;width:1200px;height:900px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px}
+  .scene{position:relative;width:1200px;height:1010px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px}
 
   /* composer (partly hidden behind the panel) */
   .composer{width:760px;background:var(--card);border:1px solid var(--line2);border-radius:18px;
@@ -36,7 +36,7 @@
   .send{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:14px}
 
   /* panel */
-  .panel{position:absolute;left:50%;top:24px;transform:translateX(-50%);width:700px;background:var(--card);
+  .panel{position:absolute;left:50%;top:18px;transform:translateX(-50%);width:700px;background:var(--card);
     border:1px solid var(--line);border-radius:18px;overflow:hidden;
     box-shadow:0 30px 80px rgba(20,30,60,.18), 0 4px 14px rgba(20,30,60,.08)}
   .head{display:flex;align-items:flex-start;gap:10px;padding:20px 22px 12px}
@@ -113,7 +113,25 @@
 
       <div class="body">
         <div class="sect">
-          <div class="sname">基本初等函数</div>
+          <div class="sname">变量与常量</div>
+          <div class="cells">
+            <div class="sym"><div class="g">x</div><div class="c">x</div></div>
+            <div class="sym"><div class="g">y</div><div class="c">y</div></div>
+            <div class="sym"><div class="g">z</div><div class="c">z</div></div>
+            <div class="sym"><div class="g">a</div><div class="c">a</div></div>
+            <div class="sym"><div class="g">b</div><div class="c">b</div></div>
+            <div class="sym"><div class="g">n</div><div class="c">n</div></div>
+            <div class="sym"><div class="g">t</div><div class="c">t</div></div>
+            <div class="sym"><div class="g">θ</div><div class="c">θ</div></div>
+            <div class="sym"><div class="g">π</div><div class="c">π</div></div>
+            <div class="sym"><div class="g">e</div><div class="c">e</div></div>
+            <div class="sym"><div class="g">∞</div><div class="c">∞</div></div>
+            <div class="sym"><div class="g">a–z</div><div class="c">展开</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">函数</div>
           <div class="cells">
             <div class="sym"><div class="g">sin</div><div class="c">sin</div></div>
             <div class="sym"><div class="g">cos</div><div class="c">cos</div></div>
@@ -124,9 +142,7 @@
             <div class="sym"><div class="g">arcsin</div><div class="c">arcsin</div></div>
             <div class="sym"><div class="g">arccos</div><div class="c">arccos</div></div>
             <div class="sym"><div class="g">arctan</div><div class="c">arctan</div></div>
-            <div class="sym"><div class="g">eˣ</div><div class="c">e</div></div>
             <div class="sym"><div class="g">ln</div><div class="c">ln</div></div>
-            <div class="sym hot"><div class="g">xⁿ</div><div class="c">x</div></div>
           </div>
         </div>
 
@@ -136,14 +152,11 @@
             <div class="sym"><div class="g">x²</div><div class="c">x2</div></div>
             <div class="sym"><div class="g">x³</div><div class="c">x3</div></div>
             <div class="sym"><div class="g">√</div><div class="c">√</div></div>
-            <div class="sym"><div class="g">(</div><div class="c">(</div></div>
-            <div class="sym"><div class="g">)</div><div class="c">)</div></div>
-            <div class="sym"><div class="g">␣</div><div class="c">空格</div></div>
           </div>
         </div>
 
         <div class="sect">
-          <div class="sname">积分与极限</div>
+          <div class="sname">微积分</div>
           <div class="cells">
             <div class="sym"><div class="g">∫</div><div class="c">∫</div></div>
             <div class="sym"><div class="g">∮</div><div class="c">∮</div></div>
@@ -151,20 +164,21 @@
             <div class="sym"><div class="g">d</div><div class="c">d</div></div>
             <div class="sym hot"><div class="g">lim</div><div class="c">lim</div></div>
             <div class="sym"><div class="g">→</div><div class="c">→</div></div>
-            <div class="sym"><div class="g">π</div><div class="c">π</div></div>
-            <div class="sym"><div class="g">∞</div><div class="c">∞</div></div>
           </div>
         </div>
 
         <div class="sect">
-          <div class="sname">运算</div>
+          <div class="sname">运算与括号</div>
           <div class="cells">
             <div class="sym"><div class="g">+</div><div class="c">+</div></div>
-            <div class="sym"><div class="g">−</div><div class="c">−</div></div>
-            <div class="sym"><div class="g">×</div><div class="c">×</div></div>
-            <div class="sym"><div class="g">÷</div><div class="c">÷</div></div>
+            <div class="sym"><div class="g">−</div><div class="c">-</div></div>
+            <div class="sym"><div class="g">×</div><div class="c">*</div></div>
+            <div class="sym"><div class="g">÷</div><div class="c">/</div></div>
             <div class="sym"><div class="g">=</div><div class="c">=</div></div>
-            <div class="sym"><div class="g">.</div><div class="c">.</div></div>
+            <div class="sym"><div class="g">(</div><div class="c">(</div></div>
+            <div class="sym"><div class="g">)</div><div class="c">)</div></div>
+            <div class="sym"><div class="g">[</div><div class="c">[</div></div>
+            <div class="sym"><div class="g">]</div><div class="c">]</div></div>
           </div>
         </div>
       </div>
@@ -192,7 +206,7 @@
 
       <div class="foot">
         <span class="hint"><span class="kbd">Enter</span> 插入　<span class="kbd">Esc</span> 关闭</span>
-        <span class="ver">v0.1.1</span>
+        <span class="ver">v0.2.0</span>
         <span class="spacer"></span>
         <button class="btn">取消</button>
         <button class="btn primary">插入到输入框</button>
