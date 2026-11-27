@@ -327,7 +327,21 @@ assert.strictEqual(draftValue(), '', 'backspace removes the whole lim token, got
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'asin', selectionStart: 4 } });
 dialog = render('math-symbols-panel');
 clickKey('⌫ 删除');
-assert.strictEqual(draftValue(), 'asi', 'a letter before sin means only one char is removed, got ' + draftValue());
+assert.strictEqual(draftValue(), 'a', 'asin is tokenized as a + sin, so sin is removed whole, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'limcosx', selectionStart: 7 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), 'limcos', 'composite: x removed, got ' + draftValue());
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'limcos', selectionStart: 6 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), 'lim', 'composite: cos removed as one token, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'arcsinsin', selectionStart: 9 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), 'arcsin', 'composite: trailing sin removed as one token, got ' + draftValue());
 
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'ln', selectionStart: 2 } });
 dialog = render('math-symbols-panel');

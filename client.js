@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.5';
+    const VERSION = '0.3.6';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -93,15 +93,33 @@ window.__ModuleLoader__.load({
     // 函数名已经由上面的正则处理，这里只收非函数符号，避免 \sin 被二次转义成 \\sin
     // 多字符符号按“一个整体”处理：退格一次删掉 sin / lim，而不是一个字母。
     const TOKEN_NAMES = Array.from(new Set([...FUNCS, 'lim'])).sort((a, b) => b.length - a.length);
-    const tokenStartBefore = (source, position) => {
-      for (const token of TOKEN_NAMES) {
-        if (position < token.length) continue;
-        if (source.slice(position - token.length, position) !== token) continue;
-        const before = source[position - token.length - 1];
-        if (before !== undefined && /[a-zA-Z]/.test(before)) continue;
-        return position - token.length;
+
+    // 切成符号序列，长名优先：arcsinsinx → [arcsin, sin, x]，limcosx → [lim, cos, x]。
+    const tokenize = (source) => {
+      const tokens = [];
+      let index = 0;
+      while (index < source.length) {
+        let matched = null;
+        for (const token of TOKEN_NAMES) {
+          if (source.startsWith(token, index)) { matched = token; break; }
+        }
+        if (matched !== null) {
+          tokens.push({ value: matched, start: index });
+          index += matched.length;
+        } else {
+          tokens.push({ value: source[index], start: index });
+          index += 1;
+        }
       }
-      return null;
+      return tokens;
+    };
+
+    const tokenStartBefore = (source, position) => {
+      if (position <= 0) return null;
+      const tokens = tokenize(source.slice(0, position));
+      const last = tokens[tokens.length - 1];
+      if (last === undefined || last.value.length <= 1) return null;
+      return last.start;
     };
 
     const LATEX_SYMBOLS = [];
