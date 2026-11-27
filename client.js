@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.4';
+    const VERSION = '0.3.5';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -91,6 +91,19 @@ window.__ModuleLoader__.load({
       .sort((a, b) => b.length - a.length);
 
     // 函数名已经由上面的正则处理，这里只收非函数符号，避免 \sin 被二次转义成 \\sin
+    // 多字符符号按“一个整体”处理：退格一次删掉 sin / lim，而不是一个字母。
+    const TOKEN_NAMES = Array.from(new Set([...FUNCS, 'lim'])).sort((a, b) => b.length - a.length);
+    const tokenStartBefore = (source, position) => {
+      for (const token of TOKEN_NAMES) {
+        if (position < token.length) continue;
+        if (source.slice(position - token.length, position) !== token) continue;
+        const before = source[position - token.length - 1];
+        if (before !== undefined && /[a-zA-Z]/.test(before)) continue;
+        return position - token.length;
+      }
+      return null;
+    };
+
     const LATEX_SYMBOLS = [];
     for (const group of GROUPS) {
       if (group.id === 'fn') continue;
@@ -604,7 +617,9 @@ window.__ModuleLoader__.load({
         const end = caretEnd();
         if (start === end) {
           if (start === 0) return;
-          putText(state.text.slice(0, start - 1) + state.text.slice(end), start - 1);
+          const tokenStart = tokenStartBefore(state.text, start);
+          const next = tokenStart === null ? start - 1 : tokenStart;
+          putText(state.text.slice(0, next) + state.text.slice(end), next);
           return;
         }
         putText(state.text.slice(0, start) + state.text.slice(end), start);
@@ -625,6 +640,19 @@ window.__ModuleLoader__.load({
 
       const onDraftKeyDown = (event) => {
         if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
+        if (event.key === 'Backspace') {
+          const input = event.currentTarget;
+          const start = typeof input.selectionStart === 'number' ? input.selectionStart : state.text.length;
+          const end = typeof input.selectionEnd === 'number' ? input.selectionEnd : start;
+          if (start === end) {
+            const tokenStart = tokenStartBefore(state.text, start);
+            if (tokenStart !== null) {
+              event.preventDefault();
+              putText(state.text.slice(0, tokenStart) + state.text.slice(start), tokenStart);
+            }
+          }
+          return;
+        }
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();

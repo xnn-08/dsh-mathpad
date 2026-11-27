@@ -313,6 +313,35 @@ byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Enter', preventDefault()
 dialog = render('math-symbols-panel');
 assert.ok(dialog !== null, 'Enter with an empty draft keeps the panel open');
 
+// ---- multi-character symbols delete as one token -------------------------
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'sinx', selectionStart: 3 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), 'x', 'backspace removes the whole sin token, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'lim', selectionStart: 3 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), '', 'backspace removes the whole lim token, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'asin', selectionStart: 4 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), 'asi', 'a letter before sin means only one char is removed, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'ln', selectionStart: 2 } });
+dialog = render('math-symbols-panel');
+const draftInput = byClass(dialog, 'mss-draftinput')[0];
+let prevented = false;
+draftInput.props.onKeyDown({
+  key: 'Backspace',
+  currentTarget: { selectionStart: 2, selectionEnd: 2 },
+  preventDefault: () => { prevented = true; },
+});
+dialog = render('math-symbols-panel');
+assert.ok(prevented, 'token backspace prevents the native single-char delete');
+assert.strictEqual(draftValue(), '', 'input backspace removes the whole ln token, got ' + draftValue());
+
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
 assert.strictEqual(render('math-symbols-panel'), null);
