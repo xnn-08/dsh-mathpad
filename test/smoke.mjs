@@ -160,7 +160,7 @@ assert.ok(versionTag, 'panel must show its version so a stale module is obvious'
 assert.ok(/^v\d+\.\d+\.\d+$/.test(textOf(versionTag)), 'version tag format, got ' + textOf(versionTag));
 
 const cells = cellsOf();
-assert.strictEqual(cells.length, 39, 'expected 39 symbols, got ' + cells.length);
+assert.strictEqual(cells.length, 42, 'expected 42 symbols, got ' + cells.length);
 assert.strictEqual(byClass(dialog, 'mss-sect').length, 5, 'expected 5 sections');
 
 // ---- sin3x: chips + digits + editable draft ------------------------------
@@ -205,6 +205,15 @@ assert.strictEqual(preview(), '(sin x)²', 'sin²x reads as (sin x)², got ' + p
 clickKey('分式');
 assert.ok(draftValue().includes('( )/( )'), 'fraction template inserted, got ' + draftValue());
 
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+clickCell('√[]()');
+assert.ok(draftValue().includes('√[]()'), 'nth-root template inserted, got ' + draftValue());
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+clickCell('lim()→()');
+assert.ok(draftValue().includes('lim()→()'), 'lim template inserted, got ' + draftValue());
+
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'e3', selectionStart: 2 } });
 dialog = render('math-symbols-panel');
 assert.strictEqual(preview(), 'e³');
@@ -226,7 +235,7 @@ assert.ok(titles.includes('插入 θ'), 'variable θ missing');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(cellsOf().length, 65, 'letters strip adds 26 cells');
+assert.strictEqual(cellsOf().length, 68, 'letters strip adds 26 cells');
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
 find(dialog, (node) => node.props && node.props.title === '插入 a' && typeof node.props.className === 'string' && node.props.className.includes('mss-letter-cell'))[0].props.onClick();
@@ -235,7 +244,7 @@ assert.strictEqual(draftValue(), 'a', 'letter a inserted');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(cellsOf().length, 39, 'letters strip collapses again');
+assert.strictEqual(cellsOf().length, 42, 'letters strip collapses again');
 
 // ---- hover selects (single visual state), arrows move, Enter outputs -----
 find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();
@@ -371,8 +380,8 @@ byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selec
 dialog = render('math-symbols-panel');
 cell(dialog, 'cos').props.onClick();
 dialog = render('math-symbols-panel');
-assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-flash'
-  && String(node.children).includes('已输入 cos')).length > 0, 'insert shows a hint');
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-toast'
+  && String(node.children).includes('已插入 cos')).length > 0, 'insert shows a floating hint');
 
 // ---- pointer inside the draft lets the arrow keys edit the caret ----------
 find(dialog, (node) => node.props && node.props.className === 'mss-draft')[0].props.onMouseEnter();
@@ -460,6 +469,18 @@ assert.ok(glyphs.includes('插入 ∮'), 'sanity');
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'x²', selectionStart: 2 } });
 dialog = render('math-symbols-panel');
 assert.strictEqual(preview(), 'x^{2}', 'superscript latex, got ' + preview());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'lim(x)→(0)', selectionStart: 10 } });
+dialog = render('math-symbols-panel');
+assert.strictEqual(preview(), '\\lim_{x \\to 0}', 'lim template latex, got ' + preview());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '∫_(0)^(1)', selectionStart: 9 } });
+dialog = render('math-symbols-panel');
+assert.strictEqual(preview(), '\\int_{0}^{1}', 'integral bounds latex, got ' + preview());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '√[3](x)', selectionStart: 7 } });
+dialog = render('math-symbols-panel');
+assert.strictEqual(preview(), '\\sqrt[3]{x}', 'nth root latex, got ' + preview());
 
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '(sinx)/(1+sinx)', selectionStart: 16 } });
 dialog = render('math-symbols-panel');

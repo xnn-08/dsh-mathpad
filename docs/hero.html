@@ -17,7 +17,7 @@
     font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;color:var(--ink);
     display:flex;align-items:center;justify-content:center;overflow:hidden;
   }
-  .scene{position:relative;width:1200px;height:1010px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px}
+  .scene{position:relative;width:1200px;height:1070px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px}
 
   /* composer (partly hidden behind the panel) */
   .composer{width:760px;background:var(--card);border:1px solid var(--line2);border-radius:18px;
@@ -153,6 +153,7 @@
             <div class="sym"><div class="g">x²</div><div class="c">x2</div></div>
             <div class="sym"><div class="g">x³</div><div class="c">x3</div></div>
             <div class="sym"><div class="g">√</div><div class="c">√</div></div>
+            <div class="sym"><div class="g">√ⁿ</div><div class="c">√[]()</div></div>
           </div>
         </div>
 
@@ -164,6 +165,8 @@
             <div class="sym"><div class="g">∂</div><div class="c">∂</div></div>
             <div class="sym"><div class="g">d</div><div class="c">d</div></div>
             <div class="sym hot"><div class="g">lim</div><div class="c">lim</div></div>
+            <div class="sym"><div class="g">lim→</div><div class="c">lim()→()</div></div>
+            <div class="sym"><div class="g">∫ₐᵇ</div><div class="c">∫_()^()</div></div>
             <div class="sym"><div class="g">→</div><div class="c">→</div></div>
           </div>
         </div>
@@ -210,7 +213,7 @@
 
       <div class="foot">
         <span class="hint"><span class="kbd">Enter</span> 插入　<span class="kbd">Esc</span> 关闭</span>
-        <span class="ver">v0.4.0</span>
+        <span class="ver">v0.4.1</span>
         <span class="spacer"></span>
         <button class="btn">取消</button>
         <button class="btn primary">插入到输入框</button>

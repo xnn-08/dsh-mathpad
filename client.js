@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.0';
+    const VERSION = '0.4.1';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -51,6 +51,7 @@ window.__ModuleLoader__.load({
           ['x²', 'x²', 'x^{2}'],
           ['x³', 'x³', 'x^{3}'],
           ['√', '√', '\\sqrt'],
+          ['√ⁿ', '√[]()', '\\sqrt[n]{}', 2],
         ],
       },
       {
@@ -62,6 +63,8 @@ window.__ModuleLoader__.load({
           ['∂', '∂', '\\partial'],
           ['d', 'd', 'd'],
           ['lim', 'lim', '\\lim'],
+          ['lim→', 'lim()→()', '\\lim_{} \\to ', 4],
+          ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3],
           ['→', '→', '\\to'],
         ],
       },
@@ -126,6 +129,8 @@ window.__ModuleLoader__.load({
     for (const group of GROUPS) {
       if (group.id === 'fn') continue;
       for (const item of group.items) {
+        // 函数名（含 lim）由正则单独处理，不能再进符号替换表，否则 \lim 会被二次转义成 \\lim
+        if (TOKEN_NAMES.includes(item[1])) continue;
         if (item[2] !== item[1] && item[2] !== '') LATEX_SYMBOLS.push([item[1], item[2]]);
       }
     }
@@ -239,10 +244,17 @@ window.__ModuleLoader__.load({
      */
     const toLatex = (raw) => {
       let out = raw;
+      // 模板填好后的写法
+      out = out.replace(/lim\(([^()]*)\)→\(([^()]*)\)/g,
+        (match, from, to) => '\\lim_{' + from.trim() + ' \\to ' + to.trim() + '}');
+      out = out.replace(/∫_\(([^()]*)\)\^\(([^()]*)\)/g,
+        (match, low, high) => '\\int_{' + low + '}^{' + high + '}');
+      out = out.replace(/√\[([^\]]*)\]\(([^()]*)\)/g,
+        (match, index, body) => '\\sqrt[' + index + ']{' + body + '}');
       // 分式模板 (分子)/(分母) → \frac{分子}{分母}
       out = out.replace(/\(([^()]*)\)\/\(([^()]*)\)/g, (match, numerator, denominator) => '\\frac{' + numerator + '}{' + denominator + '}');
       // 函数名：长名优先；后面紧跟字母/数字时补一个空格（\sin x 而不是 \sinx）
-      const fnRe = new RegExp('(?<!\\\\)(' + FUNCS.join('|') + ')', 'g');
+      const fnRe = new RegExp('(?<!\\\\)(' + TOKEN_NAMES.join('|') + ')', 'g');
       out = out.replace(fnRe, (match, _name, offset, whole) => {
         const next = whole[offset + match.length] ?? '';
         return '\\' + match + (/[a-zA-Z0-9]/.test(next) ? ' ' : '');
@@ -254,7 +266,7 @@ window.__ModuleLoader__.load({
       // lim 后面跟着含“→”的一段时才收进下标，避免把普通参数误当下标
       out = out.replace(/\\lim\s*([^\s$]*\\to[^\s$]*)/g, (match, sub) => '\\lim_{' + sub.replace(/\\to/g, ' \\to ') + '}');
       // √ 后面紧跟的一段收进花括号
-      out = out.replace(/\\sqrt([^\s$]+)/g, (match, body) => '\\sqrt{' + body + '}');
+      out = out.replace(/\\sqrt(?!\[)([^\s$]+)/g, (match, body) => '\\sqrt{' + body + '}');
       return out;
     };
 
@@ -494,6 +506,16 @@ window.__ModuleLoader__.load({
         background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.08))}
       .mss-key-clear{margin-left:auto;opacity:.75}
       .mss-flash{color:var(--dsw-alias-state-business-primary, #4176e6);font-weight:500}
+      .mss-draftrow{position:relative}
+      .mss-toast{position:absolute;left:6px;top:-26px;padding:4px 9px;border-radius:999px;
+        background:var(--dsw-alias-state-business-primary, #4176e6);color:#fff;font-size:11.5px;font-weight:500;
+        pointer-events:none;white-space:nowrap;animation:mss-toast 1.4s ease forwards}
+      @keyframes mss-toast{
+        0%{opacity:0;transform:translateY(4px)}
+        12%{opacity:1;transform:translateY(0)}
+        78%{opacity:1;transform:translateY(0)}
+        100%{opacity:0;transform:translateY(-4px)}
+      }
       .mss-copy{margin-left:8px;flex:none;border:1px solid var(--dsw-alias-border-l2, rgba(38,49,72,.18));
         border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary, #5c6470);
         font:inherit;font-size:12px;padding:5px 10px;cursor:pointer}
@@ -652,20 +674,20 @@ window.__ModuleLoader__.load({
       };
 
       const insertSnippet = (snippet) => {
-        if (state.direct) { insertDirect(snippet); flash('已输入 ' + snippet); return; }
+        if (state.direct) { insertDirect(snippet); flash('✅ 已插入 ' + snippet); return; }
         const start = caret();
         const end = caretEnd();
         replaceRange(start, end, snippet);
-        flash('已输入 ' + snippet);
+        flash('✅ 已插入 ' + snippet);
       };
 
       // 模板：插入一段文本，并把光标放到模板内部（例如分式的分子）。
       const insertTemplate = (template, offset) => {
-        if (state.direct) { insertDirect(template); flash('已输入 ' + template); return; }
+        if (state.direct) { insertDirect(template); flash('✅ 已插入模板'); return; }
         const start = caret();
         const end = caretEnd();
         replaceRange(start, end, template, start + offset);
-        flash('已插入模板');
+        flash('✅ 已插入模板');
       };
 
       const backspace = () => {
@@ -690,7 +712,7 @@ window.__ModuleLoader__.load({
       const sections = GROUPS.map((group) => ({
         id: group.id,
         name: group.name,
-        items: group.items.map((item) => ({ glyph: item[0], text: item[1] })),
+        items: group.items.map((item) => ({ glyph: item[0], text: item[1], offset: item[3] })),
       }));
       const letterCells = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
 
@@ -770,7 +792,9 @@ window.__ModuleLoader__.load({
       const triggerItem = (si, index) => {
         if (si < GROUPS.length) {
           const items = GROUPS[si].items;
-          insertSnippet(items[Math.min(index, items.length - 1)][1]);
+          const item = items[Math.min(index, items.length - 1)];
+          if (item[3] === undefined) insertSnippet(item[1]);
+          else insertTemplate(item[1], item[3]);
           return;
         }
         const key = KEYS[Math.min(index, KEYS.length - 1)];
@@ -854,7 +878,8 @@ window.__ModuleLoader__.load({
                       onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' }),
                       onClick: () => {
                         patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' });
-                        insertSnippet(item.text);
+                        if (item.offset === undefined) insertSnippet(item.text);
+                        else insertTemplate(item.text, item.offset);
                       },
                     },
                       h('div', { className: 'mss-glyph' }, item.glyph),
@@ -932,6 +957,7 @@ window.__ModuleLoader__.load({
             },
               h('div', { className: 'mss-draftrow' },
                 h('span', { className: 'mss-drafttag' }, state.direct ? '已写入' : '草稿'),
+                state.flash === '' ? null : h('span', { className: 'mss-toast' }, state.flash),
                 state.direct
                   ? h('div', { className: 'mss-drafttext' },
                     state.chain.length === 0 ? '点符号，直接写进聊天框' : state.chain.join(''))
@@ -973,11 +999,9 @@ window.__ModuleLoader__.load({
                 reading === ''
                   ? h('span', { className: 'mss-note' }, state.direct ? '还没点任何符号' : '还没有内容')
                   : h('span', { className: 'mss-math' }, reading),
-                state.flash === ''
-                  ? h('span', { className: 'mss-note' }, state.latex
-                    ? '· 插入时用这段 LaTeX'
-                    : '· sin²x → (sin x)²　· e3 → e³　· x5 → x⁵')
-                  : h('span', { className: 'mss-flash' }, state.flash),
+                h('span', { className: 'mss-note' }, state.latex
+                  ? '· 插入时用这段 LaTeX'
+                  : '· sin²x → (sin x)²　· e3 → e³　· x5 → x⁵'),
               ),
             ),
             h('div', { className: 'mss-foot' },
