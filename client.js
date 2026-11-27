@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.0';
+    const VERSION = '0.3.1';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -142,6 +142,7 @@ window.__ModuleLoader__.load({
       latex: false,
       letters: false,
       sup: false,
+      mode: 'idle',
       activeSection: 'vars',
       focusIndex: 0,
       chain: [],
@@ -222,7 +223,7 @@ window.__ModuleLoader__.load({
       if (actions === undefined || actions === null) return;
       let span = null;
       try { span = actions.captureInsertion(); } catch { span = null; }
-      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, activeSection: 'vars', focusIndex: 0, chain: [] });
+      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, mode: 'idle', activeSection: 'vars', focusIndex: 0, chain: [] });
       caretPosition = null;
     };
     const closePanel = () => {
@@ -438,7 +439,8 @@ window.__ModuleLoader__.load({
       .mss-toggle .mss-code{opacity:.45}
       .mss-cell{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.1));border-radius:9px;background:transparent;
         color:inherit;padding:7px 4px 6px;text-align:center;cursor:pointer;font:inherit}
-      .mss-cell:hover{border-color:var(--dsw-alias-state-business-primary, #4176e6);background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-cell:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.05))}
+      .mss-cell-preview{border-color:var(--dsw-alias-state-business-primary, #4176e6);background:rgba(65,118,230,.05)}
       .mss-glyph{font-family:"Cambria Math","Segoe UI",serif;font-size:15px;line-height:1.25}
       .mss-code{font-size:10px;opacity:.55;margin-top:1px;font-family:Consolas,"SF Mono",monospace}
       .mss-keypad{display:flex;gap:6px;padding:2px 20px 10px;flex-wrap:wrap}
@@ -450,7 +452,7 @@ window.__ModuleLoader__.load({
       .mss-suprow{display:flex;gap:6px;width:100%;margin-top:6px;padding-top:8px;
         border-top:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.12))}
       .mss-cell-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px;
-        background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+        background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.08))}
       .mss-key-clear{margin-left:auto;opacity:.75}
       .mss-draft{margin:0 20px;border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));padding-top:12px}
       .mss-draftrow{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;
@@ -630,33 +632,58 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const activeItems = () => {
-        const section = GROUPS.find((group) => group.id === state.activeSection);
-        return section === undefined ? [] : section.items;
+      const COLS = 6;
+      const sectionIndex = () => Math.max(0, GROUPS.findIndex((group) => group.id === state.activeSection));
+      const itemsOf = (index) => GROUPS[index].items;
+
+      // 单一焦点：悬停只给“淡预览”，按键才升为“强选中”，离开交互区回到静默。
+      const setFocus = (sectionIndexValue, itemIndex, mode) => {
+        const items = itemsOf(sectionIndexValue);
+        const clamped = Math.min(items.length - 1, Math.max(0, itemIndex));
+        patchPanel({ activeSection: GROUPS[sectionIndexValue].id, focusIndex: clamped, mode });
       };
 
-      const moveFocus = (delta) => {
-        const items = activeItems();
-        if (items.length === 0) return;
-        patchPanel({ focusIndex: Math.min(items.length - 1, Math.max(0, state.focusIndex + delta)) });
+      const moveFocus = (dx, dy) => {
+        const si = sectionIndex();
+        const items = itemsOf(si);
+        const i = state.focusIndex;
+        if (dx !== 0) {
+          const next = i + dx;
+          if (next >= 0 && next < items.length) { setFocus(si, next, 'key'); return; }
+          const target = si + dx;
+          if (target < 0 || target >= GROUPS.length) return;
+          const targetItems = itemsOf(target);
+          setFocus(target, dx > 0 ? 0 : targetItems.length - 1, 'key');
+          return;
+        }
+        const next = i + dy;
+        if (next >= 0 && next < items.length) { setFocus(si, next, 'key'); return; }
+        const target = si + (dy > 0 ? 1 : -1);
+        if (target < 0 || target >= GROUPS.length) return;
+        setFocus(target, Math.min(i, itemsOf(target).length - 1), 'key');
       };
 
       const onKeyDown = (event) => {
         if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
-        if (event.key === 'ArrowRight') { event.preventDefault(); moveFocus(1); return; }
-        if (event.key === 'ArrowLeft') { event.preventDefault(); moveFocus(-1); return; }
-        if (event.key === 'ArrowDown') { event.preventDefault(); moveFocus(6); return; }
-        if (event.key === 'ArrowUp') { event.preventDefault(); moveFocus(-6); return; }
+        if (event.key === 'ArrowRight') { event.preventDefault(); moveFocus(1, 0); return; }
+        if (event.key === 'ArrowLeft') { event.preventDefault(); moveFocus(-1, 0); return; }
+        if (event.key === 'ArrowDown') { event.preventDefault(); moveFocus(0, COLS); return; }
+        if (event.key === 'ArrowUp') { event.preventDefault(); moveFocus(0, -COLS); return; }
         if (event.key === 'Tab') {
           event.preventDefault();
-          const index = GROUPS.findIndex((group) => group.id === state.activeSection);
-          const next = (index + (event.shiftKey ? -1 : 1) + GROUPS.length) % GROUPS.length;
-          patchPanel({ activeSection: GROUPS[next].id, focusIndex: 0 });
+          const si = sectionIndex();
+          const next = (si + (event.shiftKey ? -1 : 1) + GROUPS.length) % GROUPS.length;
+          setFocus(next, 0, 'key');
           return;
         }
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
-          const items = activeItems();
+          if (state.mode === 'idle') {
+            if (state.direct) { closePanel(); return; }
+            insertDraft();
+            return;
+          }
+          const items = itemsOf(sectionIndex());
           if (items.length > 0) {
             insertSnippet(items[Math.min(state.focusIndex, items.length - 1)][1]);
             return;
@@ -691,11 +718,14 @@ window.__ModuleLoader__.load({
               }, state.latex ? 'TeX ✓' : 'TeX'),
               h('button', { type: 'button', className: 'mss-close', 'aria-label': '关闭', onClick: closePanel }, '×'),
             ),
-            h('div', { className: 'mss-body' },
+            h('div', {
+              className: 'mss-body',
+              onMouseLeave: () => patchPanel({ mode: 'idle', activeSection: 'vars', focusIndex: 0 }),
+            },
               sections.map((section) => h('div', {
                 key: section.id,
                 className: 'mss-sect',
-                onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0 }),
+                onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0, mode: 'hover' }),
               },
                 h('div', { className: 'mss-sname' }, section.name),
                 h('div', { className: 'mss-cellwrap' },
@@ -703,11 +733,13 @@ window.__ModuleLoader__.load({
                     section.items.map((item, index) => h('button', {
                       key: item.glyph + item.text,
                       type: 'button',
-                      className: 'mss-cell' + (state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : ''),
+                      className: 'mss-cell'
+                        + (state.mode === 'key' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : '')
+                        + (state.mode === 'hover' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-preview' : ''),
                       title: '插入 ' + item.text,
                       onMouseDown: keepFocus,
                       onClick: () => {
-                        patchPanel({ activeSection: section.id, focusIndex: index });
+                        patchPanel({ activeSection: section.id, focusIndex: index, mode: 'key' });
                         insertSnippet(item.text);
                       },
                     },
@@ -817,7 +849,7 @@ window.__ModuleLoader__.load({
                     onSelect: (event) => { caretPosition = event.currentTarget.selectionStart; },
                     onChange: (event) => {
                       caretPosition = event.target.selectionStart;
-                      patchPanel({ text: event.target.value });
+                      patchPanel({ text: event.target.value, mode: 'idle' });
                     },
                   }),
               ),

@@ -247,6 +247,35 @@ byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Enter', preventDefault()
 dialog = render('math-symbols-panel');
 assert.ok(draftValue().endsWith('y'), 'Enter inserts the focused variable, got ' + draftValue());
 
+// ---- single focus: hover preview vs keyboard ring, cross-section movement --
+find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();
+dialog = render('math-symbols-panel');
+assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-preview')).length > 0, 'hover shows a faint preview');
+assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus')).length, 0, 'no strong ring before a key is pressed');
+
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-preview')).length, 0, 'preview becomes a strong ring on key press');
+assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus')).length > 0, 'keyboard ring present');
+
+for (let step = 0; step < 10; step += 1) {
+  byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
+  dialog = render('math-symbols-panel');
+}
+const crossed = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus'))[0];
+assert.strictEqual(crossed.props.title, '插入 sin', 'arrow keys cross into the next section, got ' + crossed.props.title);
+
+find(dialog, (node) => node.props && node.props.className === 'mss-body')[0].props.onMouseLeave();
+dialog = render('math-symbols-panel');
+assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && (node.props.className.includes('mss-cell-focus') || node.props.className.includes('mss-cell-preview'))).length, 0,
+'silent when the pointer leaves the grid');
+
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
 assert.strictEqual(render('math-symbols-panel'), null);
