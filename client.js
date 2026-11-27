@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.1';
+    const VERSION = '0.4.2';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -506,15 +506,16 @@ window.__ModuleLoader__.load({
         background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.08))}
       .mss-key-clear{margin-left:auto;opacity:.75}
       .mss-flash{color:var(--dsw-alias-state-business-primary, #4176e6);font-weight:500}
-      .mss-draftrow{position:relative}
-      .mss-toast{position:absolute;left:6px;top:-26px;padding:4px 9px;border-radius:999px;
+      .mss-modewrap{position:relative;display:inline-flex}
+      .mss-toast{position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);
+        padding:4px 9px;border-radius:999px;z-index:2;
         background:var(--dsw-alias-state-business-primary, #4176e6);color:#fff;font-size:11.5px;font-weight:500;
         pointer-events:none;white-space:nowrap;animation:mss-toast 1.4s ease forwards}
       @keyframes mss-toast{
-        0%{opacity:0;transform:translateY(4px)}
-        12%{opacity:1;transform:translateY(0)}
-        78%{opacity:1;transform:translateY(0)}
-        100%{opacity:0;transform:translateY(-4px)}
+        0%{opacity:0}
+        12%{opacity:1}
+        78%{opacity:1}
+        100%{opacity:0}
       }
       .mss-copy{margin-left:8px;flex:none;border:1px solid var(--dsw-alias-border-l2, rgba(38,49,72,.18));
         border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary, #5c6470);
@@ -842,12 +843,15 @@ window.__ModuleLoader__.load({
                   ? '点符号/数字直接写进聊天框，面板不关，可以连着点'
                   : '点符号填空、直接改草稿 · 插入到输入框光标处'),
               ),
-              h('button', {
-                type: 'button',
-                className: 'mss-mode',
-                title: state.direct ? '切回草稿模式' : '切成直插模式',
-                onClick: () => setDirectMode(!state.direct),
-              }, state.direct ? '⇢ 直插' : '⌨ 草稿'),
+              h('span', { className: 'mss-modewrap' },
+                h('button', {
+                  type: 'button',
+                  className: 'mss-mode',
+                  title: state.direct ? '切回草稿模式' : '切成直插模式',
+                  onClick: () => setDirectMode(!state.direct),
+                }, state.direct ? '⇢ 直插' : '⌨ 草稿'),
+                state.flash === '' ? null : h('span', { className: 'mss-toast' }, state.flash),
+              ),
               h('button', {
                 type: 'button',
                 className: 'mss-mode' + (state.latex ? ' mss-mode-on' : ''),
@@ -957,7 +961,6 @@ window.__ModuleLoader__.load({
             },
               h('div', { className: 'mss-draftrow' },
                 h('span', { className: 'mss-drafttag' }, state.direct ? '已写入' : '草稿'),
-                state.flash === '' ? null : h('span', { className: 'mss-toast' }, state.flash),
                 state.direct
                   ? h('div', { className: 'mss-drafttext' },
                     state.chain.length === 0 ? '点符号，直接写进聊天框' : state.chain.join(''))
