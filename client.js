@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.1';
+    const VERSION = '0.3.2';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -260,7 +260,7 @@ window.__ModuleLoader__.load({
       const raw = panel.text.trim();
       const text = panel.latex ? toLatex(raw) : raw;
       const actions = panel.actions;
-      if (text === '') { closePanel(); return; }
+      if (text === '') return;
       let inserted = false;
       if (actions !== null) {
         let span = panel.span;
@@ -449,6 +449,7 @@ window.__ModuleLoader__.load({
       .mss-key:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
       .mss-key-space{color:inherit;opacity:.75;font-size:12px}
       .mss-key-on{background:var(--dsw-alias-state-business-primary, #4176e6);border-color:transparent;color:#fff}
+      .mss-key-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px}
       .mss-suprow{display:flex;gap:6px;width:100%;margin-top:6px;padding-top:8px;
         border-top:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.12))}
       .mss-cell-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px;
@@ -632,15 +633,30 @@ window.__ModuleLoader__.load({
         }
       };
 
+      // 键盘区的按键也纳入方向键导航；Enter 触发当前项。
+      const KEYS = [
+        ...['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => ({
+          id: 'digit-' + digit, label: digit, title: digit, run: () => insertSnippet(digit),
+        })),
+        { id: 'space', label: '空格', title: '普通空格', run: () => insertSnippet(' ') },
+        { id: 'fraction', label: '分式', title: '分式模板 (分子)/(分母)', run: () => insertTemplate('( )/( )', 2) },
+        { id: 'sup', label: 'ⁿ', title: '上标数字（幂次）', run: () => patchPanel({ sup: !state.sup }) },
+        ...(state.direct ? [] : [{ id: 'backspace', label: '⌫ 删除', title: '删除光标前一个字符', run: backspace }]),
+      ];
+
+      const NAV_IDS = GROUPS.map((group) => group.id).concat('keys');
       const COLS = 6;
-      const sectionIndex = () => Math.max(0, GROUPS.findIndex((group) => group.id === state.activeSection));
-      const itemsOf = (index) => GROUPS[index].items;
+      const sectionIndex = () => Math.max(0, NAV_IDS.indexOf(state.activeSection));
+      const itemsOf = (index) => (index < GROUPS.length ? GROUPS[index].items : KEYS);
 
       // 单一焦点：悬停只给“淡预览”，按键才升为“强选中”，离开交互区回到静默。
-      const setFocus = (sectionIndexValue, itemIndex, mode) => {
-        const items = itemsOf(sectionIndexValue);
-        const clamped = Math.min(items.length - 1, Math.max(0, itemIndex));
-        patchPanel({ activeSection: GROUPS[sectionIndexValue].id, focusIndex: clamped, mode });
+      const setFocus = (si, itemIndex, mode) => {
+        const items = itemsOf(si);
+        patchPanel({
+          activeSection: NAV_IDS[si],
+          focusIndex: Math.min(items.length - 1, Math.max(0, itemIndex)),
+          mode,
+        });
       };
 
       const moveFocus = (dx, dy) => {
@@ -651,16 +667,26 @@ window.__ModuleLoader__.load({
           const next = i + dx;
           if (next >= 0 && next < items.length) { setFocus(si, next, 'key'); return; }
           const target = si + dx;
-          if (target < 0 || target >= GROUPS.length) return;
-          const targetItems = itemsOf(target);
-          setFocus(target, dx > 0 ? 0 : targetItems.length - 1, 'key');
+          if (target < 0 || target >= NAV_IDS.length) return;
+          setFocus(target, dx > 0 ? 0 : itemsOf(target).length - 1, 'key');
           return;
         }
         const next = i + dy;
         if (next >= 0 && next < items.length) { setFocus(si, next, 'key'); return; }
         const target = si + (dy > 0 ? 1 : -1);
-        if (target < 0 || target >= GROUPS.length) return;
+        if (target < 0 || target >= NAV_IDS.length) return;
         setFocus(target, Math.min(i, itemsOf(target).length - 1), 'key');
+      };
+
+      // 输出：符号插入文本，键盘按键执行自己的动作。
+      const triggerItem = (si, index) => {
+        if (si < GROUPS.length) {
+          const items = GROUPS[si].items;
+          insertSnippet(items[Math.min(index, items.length - 1)][1]);
+          return;
+        }
+        const key = KEYS[Math.min(index, KEYS.length - 1)];
+        if (key !== undefined) key.run();
       };
 
       const onKeyDown = (event) => {
@@ -672,24 +698,18 @@ window.__ModuleLoader__.load({
         if (event.key === 'Tab') {
           event.preventDefault();
           const si = sectionIndex();
-          const next = (si + (event.shiftKey ? -1 : 1) + GROUPS.length) % GROUPS.length;
+          const next = (si + (event.shiftKey ? -1 : 1) + NAV_IDS.length) % NAV_IDS.length;
           setFocus(next, 0, 'key');
           return;
         }
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
+          // Enter 只负责“输出当前选中项”，不再兼作关闭；空草稿也不关面板。
           if (state.mode === 'idle') {
-            if (state.direct) { closePanel(); return; }
-            insertDraft();
+            if (!state.direct) insertDraft();
             return;
           }
-          const items = itemsOf(sectionIndex());
-          if (items.length > 0) {
-            insertSnippet(items[Math.min(state.focusIndex, items.length - 1)][1]);
-            return;
-          }
-          if (state.direct) { closePanel(); return; }
-          insertDraft();
+          triggerItem(sectionIndex(), state.focusIndex);
         }
         if (event.key === 'Backspace' && event.metaKey) { event.preventDefault(); putText('', 0); }
       };
@@ -740,8 +760,10 @@ window.__ModuleLoader__.load({
                       onMouseDown: keepFocus,
                       onClick: () => {
                         patchPanel({ activeSection: section.id, focusIndex: index, mode: 'key' });
-                        insertSnippet(item.text);
+                        // 直插模式单击就是输出；草稿模式单击只选中，双击才插入。
+                        if (state.direct) insertSnippet(item.text);
                       },
+                      onDoubleClick: () => { if (!state.direct) insertSnippet(item.text); },
                     },
                       h('div', { className: 'mss-glyph' }, item.glyph),
                       h('div', { className: 'mss-code' }, item.text === ' ' ? '空格' : item.text),
@@ -765,7 +787,7 @@ window.__ModuleLoader__.load({
                       letterCells.map((item) => h('button', {
                         key: 'letter-' + item.text,
                         type: 'button',
-                        className: 'mss-cell',
+                        className: 'mss-cell mss-letter-cell',
                         title: '插入 ' + item.text,
                         onMouseDown: keepFocus,
                         onClick: () => insertSnippet(item.text),
@@ -776,42 +798,20 @@ window.__ModuleLoader__.load({
               )),
             ),
             h('div', { className: 'mss-keypad' },
-              ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => h('button', {
-                key: digit,
+              KEYS.map((key, index) => h('button', {
+                key: key.id,
                 type: 'button',
-                className: 'mss-key',
+                title: key.title,
+                className: 'mss-key'
+                  + (key.id === 'sup' && state.sup ? ' mss-key-on' : '')
+                  + (key.id === 'backspace' ? ' mss-key-clear' : '')
+                  + (state.mode === 'key' && state.activeSection === 'keys' && state.focusIndex === index ? ' mss-key-focus' : ''),
                 onMouseDown: keepFocus,
-                onClick: () => insertSnippet(digit),
-              }, digit)),
-              h('button', {
-                type: 'button',
-                className: 'mss-key',
-                title: '普通空格',
-                onMouseDown: keepFocus,
-                onClick: () => insertSnippet(' '),
-              }, '空格'),
-              h('button', {
-                type: 'button',
-                className: 'mss-key',
-                title: '分式模板 (分子)/(分母)',
-                onMouseDown: keepFocus,
-                onClick: () => insertTemplate('( )/( )', 2),
-              }, '分式'),
-              h('button', {
-                type: 'button',
-                className: 'mss-key' + (state.sup ? ' mss-key-on' : ''),
-                title: '上标数字（幂次）',
-                onMouseDown: keepFocus,
-                onClick: () => patchPanel({ sup: !state.sup }),
-              }, 'ⁿ'),
-              state.direct
-                ? null
-                : h('button', {
-                  type: 'button',
-                  className: 'mss-key mss-key-clear',
-                  onMouseDown: keepFocus,
-                  onClick: backspace,
-                }, '⌫ 删除'),
+                onClick: () => {
+                  patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'key' });
+                  key.run();
+                },
+              }, key.label)),
               state.sup
                 ? h('div', { className: 'mss-suprow' },
                   SUPERSCRIPT_DIGITS.map((glyph) => h('button', {

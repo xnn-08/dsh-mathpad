@@ -111,10 +111,15 @@ const isCell = (node) => node.props && typeof node.props.className === 'string'
   && node.props.className.split(' ').includes('mss-cell') && !node.props.className.includes('mss-toggle');
 const cellsOf = () => find(dialog, isCell);
 const cell = (tree, glyph) => find(tree, (node) => isCell(node) && node.props.title === '插入 ' + glyph)[0];
+// 单击 = 选中（不输出），双击 = 插入
 const clickCell = (glyph) => {
   const button = cell(dialog, glyph);
   assert.ok(button, 'cell missing: ' + glyph);
   button.props.onClick();
+  dialog = render('math-symbols-panel');
+  const again = cell(dialog, glyph);
+  assert.ok(again && typeof again.props.onDoubleClick === 'function', 'double-click handler missing: ' + glyph);
+  again.props.onDoubleClick();
   dialog = render('math-symbols-panel');
 };
 const clickKey = (label) => {
@@ -226,9 +231,11 @@ assert.ok(titles.includes('插入 θ'), 'variable θ missing');
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
 assert.strictEqual(cellsOf().length, 65, 'letters strip adds 26 cells');
-find(dialog, (node) => node.props && node.props.title === '插入 a' && isCell(node))[0].props.onClick();
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
-assert.ok(draftValue().endsWith('a'), 'letter a inserted');
+find(dialog, (node) => node.props && node.props.title === '插入 a' && typeof node.props.className === 'string' && node.props.className.includes('mss-letter-cell'))[0].props.onClick();
+dialog = render('math-symbols-panel');
+assert.strictEqual(draftValue(), 'a', 'letter a inserted');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
@@ -275,6 +282,41 @@ dialog = render('math-symbols-panel');
 assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
   && (node.props.className.includes('mss-cell-focus') || node.props.className.includes('mss-cell-preview'))).length, 0,
 'silent when the pointer leaves the grid');
+
+// ---- click = select, double-click = output -------------------------------
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+cell(dialog, 'sin').props.onClick();
+dialog = render('math-symbols-panel');
+assert.strictEqual(draftValue(), '', 'single click must select, not insert');
+assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus')).length > 0, 'single click shows the focus ring');
+cell(dialog, 'sin').props.onDoubleClick();
+dialog = render('math-symbols-panel');
+assert.strictEqual(draftValue(), 'sin', 'double click inserts');
+
+// ---- keypad is reachable with Tab and Enter runs the focused key ----------
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+for (let step = 0; step < 4; step += 1) {
+  byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Tab', preventDefault() {} });
+  dialog = render('math-symbols-panel');
+}
+const focusedKey = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-key-focus'))[0];
+assert.ok(focusedKey, 'keypad keys can be focused with Tab');
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Enter', preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.strictEqual(draftValue(), '1', 'Enter runs the focused keypad key, got ' + draftValue());
+
+// ---- Enter never closes the panel ---------------------------------------
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+find(dialog, (node) => node.props && node.props.className === 'mss-body')[0].props.onMouseLeave();
+dialog = render('math-symbols-panel');
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Enter', preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.ok(dialog !== null, 'Enter with an empty draft keeps the panel open');
 
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
