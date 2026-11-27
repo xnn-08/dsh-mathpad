@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>dsh-mathpad — product shot</title>
+<style>
+  :root{
+    --ink:#0f1115; --ink2:#5f6673; --ink3:#9aa1ad;
+    --line:rgba(15,17,21,.09); --line2:rgba(15,17,21,.14);
+    --brand:#4176e6; --brand-soft:rgba(65,118,230,.10);
+    --bg:#f3f5fa; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:radial-gradient(120% 120% at 50% 0%, #fbfcff 0%, var(--bg) 55%, #e8ecf5 100%);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .scene{position:relative;width:1200px;height:900px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px}
+
+  /* composer (partly hidden behind the panel) */
+  .composer{width:760px;background:var(--card);border:1px solid var(--line2);border-radius:18px;
+    box-shadow:0 10px 30px rgba(20,30,60,.06), 0 2px 6px rgba(20,30,60,.04);padding:16px 16px 12px}
+  .ph{color:var(--ink3);font-size:15px;padding:2px 4px 26px}
+  .row{display:flex;align-items:center;gap:10px}
+  .tool{width:30px;height:30px;border:1px solid var(--line2);border-radius:9px;color:var(--ink2);
+    display:grid;place-items:center;font-size:14px;background:#fff}
+  .chip{font-size:12.5px;color:var(--ink2);border:1px solid var(--line2);border-radius:999px;padding:4px 12px;background:#fff}
+  .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .trigger{position:relative;width:30px;height:30px;display:grid;place-items:center;border:none;background:transparent;padding:0}
+  .trigger svg{position:absolute;overflow:visible;left:-3px;top:-3px}
+  .trigger .line{fill:none;stroke:#8a93a3;stroke-width:1;opacity:.55}
+  .trigger .fill{fill:#8a93a3;opacity:.04}
+  .trigger .sigma{position:relative;font-size:13px;line-height:0;transform:translateY(-2.2px)}
+  .send{width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:14px}
+
+  /* panel */
+  .panel{position:absolute;left:50%;top:24px;transform:translateX(-50%);width:700px;background:var(--card);
+    border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(20,30,60,.18), 0 4px 14px rgba(20,30,60,.08)}
+  .head{display:flex;align-items:flex-start;gap:10px;padding:20px 22px 12px}
+  .head h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
+  .head p{margin:4px 0 0;font-size:12.5px;color:var(--ink2)}
+  .pill{margin-left:auto;font-size:12.5px;color:var(--ink2);border:1px solid var(--line2);border-radius:999px;
+    padding:6px 12px;background:#fff;white-space:nowrap}
+  .pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .close{width:30px;height:30px;border:none;background:transparent;color:var(--ink3);font-size:18px}
+  .body{padding:4px 22px 0}
+  .sect{display:flex;align-items:flex-start;gap:12px;padding:8px 0}
+  .sect + .sect{border-top:1px solid var(--line)}
+  .sname{width:88px;flex:none;font-size:12px;color:var(--ink3);padding-top:10px}
+  .cells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;flex:1}
+  .sym{border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 4px 7px;text-align:center}
+  .sym.hot{border-color:rgba(65,118,230,.45);background:#f6f9ff}
+  .g{font-family:"Cambria Math","Segoe UI",serif;font-size:15px;line-height:1.25}
+  .c{font-size:10.5px;color:var(--ink3);margin-top:2px;font-family:Consolas,monospace}
+  .keypad{display:flex;gap:7px;padding:4px 22px 12px;flex-wrap:wrap}
+  .key{min-width:34px;height:32px;padding:0 10px;border:1px solid var(--line2);border-radius:9px;background:#fff;
+    color:var(--ink);font:inherit;font-size:13px}
+  .key.space{color:var(--ink2);font-size:12.5px}
+  .key.clear{margin-left:auto;color:var(--ink2)}
+  .draft{margin:0 22px;border-top:1px solid var(--line);padding-top:14px}
+  .draftrow{display:flex;align-items:center;gap:12px;min-height:48px;padding:9px 12px;border-radius:11px;
+    border:1px solid var(--brand);box-shadow:0 0 0 4px rgba(65,118,230,.10);background:#fff}
+  .tag{font-size:11.5px;color:var(--ink3)}
+  .drafttext{font-family:"Cambria Math",Consolas,monospace;font-size:17px}
+  .caret{display:inline-block;width:1.5px;height:18px;background:var(--brand);vertical-align:-4px;margin-left:2px}
+  .preview{display:flex;align-items:baseline;gap:10px;padding:10px 2px 0;font-size:12.5px;color:var(--ink2)}
+  .preview b{font-weight:600;color:var(--ink)}
+  .preview .math{font-family:"Cambria Math",serif;font-size:14.5px;color:var(--ink)}
+  .foot{display:flex;align-items:center;gap:12px;margin:16px 22px 20px}
+  .hint{font-size:12px;color:var(--ink3)}
+  .kbd{font-family:Consolas,monospace;font-size:11px;border:1px solid var(--line2);border-bottom-width:2px;
+    border-radius:5px;padding:0 5px;color:var(--ink2);background:#fff}
+  .ver{font-size:10.5px;color:var(--ink3);font-family:Consolas,monospace;margin-left:10px}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border-radius:10px;padding:9px 16px;border:1px solid var(--line2);background:#fff;color:var(--ink2)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:500}
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="composer">
+      <div class="ph">给 DeepSeek 发送消息…</div>
+      <div class="row">
+        <div class="tool">＋</div>
+        <div class="chip">完全权限</div>
+        <div class="right">
+          <div class="trigger" title="数学符号面板">
+            <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+              <path class="fill" d="" id="frameFill"></path>
+              <path class="line" d="" id="frameLine"></path>
+            </svg>
+            <span class="sigma">∑</span>
+          </div>
+          <div class="chip">模型</div>
+          <div class="send">↑</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="head">
+        <div>
+          <h1>数学符号</h1>
+          <p>点符号填空、直接改草稿 · 插入到输入框光标处</p>
+        </div>
+        <div class="pill">⌨ 草稿</div>
+        <div class="pill on">TeX</div>
+        <div class="close">×</div>
+      </div>
+
+      <div class="body">
+        <div class="sect">
+          <div class="sname">基本初等函数</div>
+          <div class="cells">
+            <div class="sym"><div class="g">sin</div><div class="c">sin</div></div>
+            <div class="sym"><div class="g">cos</div><div class="c">cos</div></div>
+            <div class="sym"><div class="g">tan</div><div class="c">tan</div></div>
+            <div class="sym"><div class="g">cot</div><div class="c">cot</div></div>
+            <div class="sym"><div class="g">sec</div><div class="c">sec</div></div>
+            <div class="sym"><div class="g">csc</div><div class="c">csc</div></div>
+            <div class="sym"><div class="g">arcsin</div><div class="c">arcsin</div></div>
+            <div class="sym"><div class="g">arccos</div><div class="c">arccos</div></div>
+            <div class="sym"><div class="g">arctan</div><div class="c">arctan</div></div>
+            <div class="sym"><div class="g">eˣ</div><div class="c">e</div></div>
+            <div class="sym"><div class="g">ln</div><div class="c">ln</div></div>
+            <div class="sym hot"><div class="g">xⁿ</div><div class="c">x</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">幂与根</div>
+          <div class="cells">
+            <div class="sym"><div class="g">x²</div><div class="c">x2</div></div>
+            <div class="sym"><div class="g">x³</div><div class="c">x3</div></div>
+            <div class="sym"><div class="g">√</div><div class="c">√</div></div>
+            <div class="sym"><div class="g">(</div><div class="c">(</div></div>
+            <div class="sym"><div class="g">)</div><div class="c">)</div></div>
+            <div class="sym"><div class="g">␣</div><div class="c">空格</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">积分与极限</div>
+          <div class="cells">
+            <div class="sym"><div class="g">∫</div><div class="c">∫</div></div>
+            <div class="sym"><div class="g">∮</div><div class="c">∮</div></div>
+            <div class="sym"><div class="g">∂</div><div class="c">∂</div></div>
+            <div class="sym"><div class="g">d</div><div class="c">d</div></div>
+            <div class="sym hot"><div class="g">lim</div><div class="c">lim</div></div>
+            <div class="sym"><div class="g">→</div><div class="c">→</div></div>
+            <div class="sym"><div class="g">π</div><div class="c">π</div></div>
+            <div class="sym"><div class="g">∞</div><div class="c">∞</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">运算</div>
+          <div class="cells">
+            <div class="sym"><div class="g">+</div><div class="c">+</div></div>
+            <div class="sym"><div class="g">−</div><div class="c">−</div></div>
+            <div class="sym"><div class="g">×</div><div class="c">×</div></div>
+            <div class="sym"><div class="g">÷</div><div class="c">÷</div></div>
+            <div class="sym"><div class="g">=</div><div class="c">=</div></div>
+            <div class="sym"><div class="g">.</div><div class="c">.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="keypad">
+        <button class="key">1</button><button class="key">2</button><button class="key">3</button>
+        <button class="key">4</button><button class="key">5</button><button class="key">6</button>
+        <button class="key">7</button><button class="key">8</button><button class="key">9</button>
+        <button class="key">0</button>
+        <button class="key space">空格（次方）</button>
+        <button class="key clear">⌫ 删除</button>
+      </div>
+
+      <div class="draft">
+        <div class="draftrow">
+          <span class="tag">草稿</span>
+          <div class="drafttext">limx→0 sinx<span class="caret"></span></div>
+        </div>
+        <div class="preview">
+          <span>LaTeX</span>
+          <span class="math">\lim_{x \to 0} \sin x</span>
+          <span style="opacity:.6">· 插入时用这段</span>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span class="hint"><span class="kbd">Enter</span> 插入　<span class="kbd">Esc</span> 关闭</span>
+        <span class="ver">v0.1.1</span>
+        <span class="spacer"></span>
+        <button class="btn">取消</button>
+        <button class="btn primary">插入到输入框</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  (function () {
+    // same G2 path generator as the plugin, scaled for the 30px trigger preview
+    function build(size, radius, transition, padding) {
+      var thetaR = transition / (2 * radius);
+      var thetaA = Math.PI / 2 - 2 * thetaR;
+      var total = 2 * transition + radius * thetaA;
+      var samples = 44, sub = 10, h = total / (samples * sub);
+      function kappa(u) {
+        if (u <= 0) return 0;
+        if (u < transition) return u / (radius * transition);
+        if (u < transition + radius * thetaA) return 1 / radius;
+        if (u < total) return (total - u) / (radius * transition);
+        return 0;
+      }
+      var x = 0, y = 0, theta = 0, s = 0, pts = [[0, 0]];
+      for (var i = 0; i < samples * sub; i++) {
+        var kMid = kappa(s + h / 2);
+        var thMid = theta + kMid * h / 2;
+        x += Math.cos(thMid) * h;
+        y += Math.sin(thMid) * h;
+        theta += kappa(s + h) * h;
+        s += h;
+        if ((i + 1) % sub === 0) pts.push([x, y]);
+      }
+      pts.push([x, y]);
+      var endX = x;
+      var placed = pts.map(function (p) { return [size - endX + p[0] + padding, p[1] + padding]; });
+      function rot(p, deg) {
+        var a = deg * Math.PI / 180, c = size / 2 + padding;
+        var dx = p[0] - c, dy = p[1] - c;
+        return [c + dx * Math.cos(a) - dy * Math.sin(a), c + dx * Math.sin(a) + dy * Math.cos(a)];
+      }
+      var pieces = [0, 90, 180, 270].map(function (deg) { return placed.map(function (p) { return rot(p, deg); }); });
+      function f(v) { return v.toFixed(2); }
+      var d = '';
+      for (var k = 0; k < 4; k++) {
+        var piece = pieces[k];
+        if (k === 0) d += 'M ' + f(piece[0][0]) + ' ' + f(piece[0][1]);
+        for (var j = 1; j < piece.length; j++) d += ' L ' + f(piece[j][0]) + ' ' + f(piece[j][1]);
+        var next = pieces[(k + 1) % 4][0];
+        d += ' L ' + f(next[0]) + ' ' + f(next[1]);
+      }
+      return d + ' Z';
+    }
+    var d = build(30, 8, 4.4, 1.6);
+    document.getElementById('frameFill').setAttribute('d', d);
+    document.getElementById('frameLine').setAttribute('d', d);
+  })();
+</script>
+</body>
+</html>
