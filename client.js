@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.6';
+    const VERSION = '0.4.0';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -176,6 +176,8 @@ window.__ModuleLoader__.load({
       mode: 'idle',
       activeSection: 'vars',
       focusIndex: 0,
+      pointerInDraft: false,
+      flash: '',
       chain: [],
     };
     // 草稿里最后的光标位置：点击符号时插在这里，而不是总插到末尾。
@@ -183,6 +185,12 @@ window.__ModuleLoader__.load({
     const listeners = new Set();
     const emit = () => { for (const listener of listeners) listener(); };
     const patchPanel = (patch) => { Object.assign(panel, patch); emit(); };
+    let flashTimer = null;
+    const flash = (message) => {
+      if (flashTimer !== null) clearTimeout(flashTimer);
+      patchPanel({ flash: message });
+      flashTimer = setTimeout(() => { patchPanel({ flash: '' }); }, 1400);
+    };
 
     const stateHook = () => {
       const [, force] = React.useState(0);
@@ -254,7 +262,7 @@ window.__ModuleLoader__.load({
       if (actions === undefined || actions === null) return;
       let span = null;
       try { span = actions.captureInsertion(); } catch { span = null; }
-      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, mode: 'idle', activeSection: 'vars', focusIndex: 0, chain: [] });
+      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, mode: 'idle', activeSection: 'vars', focusIndex: 0, pointerInDraft: false, flash: '', chain: [] });
       caretPosition = null;
     };
     const closePanel = () => {
@@ -436,7 +444,7 @@ window.__ModuleLoader__.load({
       .mss-trigger .mss-sigma{position:relative;z-index:1;display:block;font-size:12px;line-height:0;
         transform:translateY(var(--mss-ink-center, -2.1px))}
       .mss-scrim{position:fixed;inset:0;z-index:600;background:rgba(15,17,21,.28);display:grid;place-items:center;padding:24px}
-      .mss-dialog{width:660px;max-width:calc(100vw - 48px);max-height:calc(100vh - 64px);display:flex;flex-direction:column;
+      .mss-dialog{width:min(660px, calc(100vw - 48px));max-height:calc(100vh - 64px);display:flex;flex-direction:column;
         background:var(--dsw-alias-bg-base, #fff);color:inherit;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));
         border-radius:16px;box-shadow:0 24px 64px rgba(15,17,21,.24),0 2px 8px rgba(15,17,21,.08);overflow:hidden}
       .mss-head{display:flex;align-items:flex-start;gap:10px;padding:18px 20px 10px}
@@ -485,6 +493,15 @@ window.__ModuleLoader__.load({
       .mss-cell-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px;
         background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.08))}
       .mss-key-clear{margin-left:auto;opacity:.75}
+      .mss-flash{color:var(--dsw-alias-state-business-primary, #4176e6);font-weight:500}
+      .mss-copy{margin-left:8px;flex:none;border:1px solid var(--dsw-alias-border-l2, rgba(38,49,72,.18));
+        border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary, #5c6470);
+        font:inherit;font-size:12px;padding:5px 10px;cursor:pointer}
+      .mss-copy:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      @media (max-width:720px){
+        .mss-cells{grid-template-columns:repeat(4, minmax(0, 1fr))}
+        .mss-letters{grid-template-columns:repeat(7, minmax(0, 1fr))}
+      }
       .mss-draft{margin:0 20px;border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));padding-top:12px}
       .mss-draftrow{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;
         border:1px solid var(--dsw-alias-state-business-primary, #4176e6);
@@ -615,19 +632,40 @@ window.__ModuleLoader__.load({
         caretTarget.current = position;
       };
 
+      // 优先走输入框原生编辑，浏览器自己的 Ctrl+Z 撤销栈才能记住这一步。
+      const replaceRange = (start, end, replacement, caretAfter) => {
+        const input = draftRef.current;
+        const canCommand = input !== null && typeof document !== 'undefined'
+          && document.activeElement === input && typeof document.execCommand === 'function';
+        if (canCommand) {
+          input.focus();
+          input.setSelectionRange(start, end);
+          document.execCommand('insertText', false, replacement);
+          const position = caretAfter === undefined ? start + replacement.length : caretAfter;
+          input.setSelectionRange(position, position);
+          caretPosition = position;
+          caretTarget.current = position;
+          return;
+        }
+        putText(state.text.slice(0, start) + replacement + state.text.slice(end),
+          caretAfter === undefined ? start + replacement.length : caretAfter);
+      };
+
       const insertSnippet = (snippet) => {
-        if (state.direct) { insertDirect(snippet); return; }
+        if (state.direct) { insertDirect(snippet); flash('已输入 ' + snippet); return; }
         const start = caret();
         const end = caretEnd();
-        putText(state.text.slice(0, start) + snippet + state.text.slice(end), start + snippet.length);
+        replaceRange(start, end, snippet);
+        flash('已输入 ' + snippet);
       };
 
       // 模板：插入一段文本，并把光标放到模板内部（例如分式的分子）。
       const insertTemplate = (template, offset) => {
-        if (state.direct) { insertDirect(template); return; }
+        if (state.direct) { insertDirect(template); flash('已输入 ' + template); return; }
         const start = caret();
         const end = caretEnd();
-        putText(state.text.slice(0, start) + template + state.text.slice(end), start + offset);
+        replaceRange(start, end, template, start + offset);
+        flash('已插入模板');
       };
 
       const backspace = () => {
@@ -637,10 +675,10 @@ window.__ModuleLoader__.load({
           if (start === 0) return;
           const tokenStart = tokenStartBefore(state.text, start);
           const next = tokenStart === null ? start - 1 : tokenStart;
-          putText(state.text.slice(0, next) + state.text.slice(end), next);
+          replaceRange(next, start, '', next);
           return;
         }
-        putText(state.text.slice(0, start) + state.text.slice(end), start);
+        replaceRange(start, end, '', start);
       };
 
       const scrim = (event) => {
@@ -695,7 +733,7 @@ window.__ModuleLoader__.load({
       ];
 
       const NAV_IDS = GROUPS.map((group) => group.id).concat('keys');
-      const COLS = 6;
+      const COLS = (typeof window !== 'undefined' && window.innerWidth <= 720) ? 4 : 6;
       const sectionIndex = () => Math.max(0, NAV_IDS.indexOf(state.activeSection));
       const itemsOf = (index) => (index < GROUPS.length ? GROUPS[index].items : KEYS);
 
@@ -741,14 +779,20 @@ window.__ModuleLoader__.load({
 
       const onKeyDown = (event) => {
         if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
+        // 鼠标在草稿区时，方向键交给输入框移动光标，不抢。
+        if (state.pointerInDraft && event.key.startsWith('Arrow')) return;
         if (event.key === 'ArrowRight') { event.preventDefault(); moveFocus(1, 0); return; }
         if (event.key === 'ArrowLeft') { event.preventDefault(); moveFocus(-1, 0); return; }
         if (event.key === 'ArrowDown') { event.preventDefault(); moveFocus(0, COLS); return; }
         if (event.key === 'ArrowUp') { event.preventDefault(); moveFocus(0, -COLS); return; }
         if (event.key === 'Tab') {
           event.preventDefault();
+          if (event.shiftKey) {
+            setLatexMode(!state.latex);
+            return;
+          }
           const si = sectionIndex();
-          const next = (si + (event.shiftKey ? -1 : 1) + NAV_IDS.length) % NAV_IDS.length;
+          const next = (si + 1 + NAV_IDS.length) % NAV_IDS.length;
           setFocus(next, 0, 'selected');
           return;
         }
@@ -881,7 +925,11 @@ window.__ModuleLoader__.load({
                   }, 'ⁿ'))
                 : null,
             ),
-            h('div', { className: 'mss-draft' },
+            h('div', {
+              className: 'mss-draft',
+              onMouseEnter: () => patchPanel({ pointerInDraft: true }),
+              onMouseLeave: () => patchPanel({ pointerInDraft: false }),
+            },
               h('div', { className: 'mss-draftrow' },
                 h('span', { className: 'mss-drafttag' }, state.direct ? '已写入' : '草稿'),
                 state.direct
@@ -901,15 +949,35 @@ window.__ModuleLoader__.load({
                       patchPanel({ text: event.target.value, mode: 'idle' });
                     },
                   }),
+                h('button', {
+                  type: 'button',
+                  className: 'mss-copy',
+                  title: '复制草稿（TeX 模式下复制 LaTeX）',
+                  onMouseDown: keepFocus,
+                  onClick: () => {
+                    const value = state.latex ? toLatex(sourceText) : sourceText;
+                    if (value === '') { flash('还没有内容'); return; }
+                    try {
+                      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                        navigator.clipboard.writeText(value);
+                        flash('已复制');
+                        return;
+                      }
+                    } catch { /* 落到下面 */ }
+                    flash('复制不可用');
+                  },
+                }, '复制'),
               ),
               h('div', { className: 'mss-preview' },
                 h('span', { className: 'mss-lbl' }, state.latex ? 'LaTeX' : '读作'),
                 reading === ''
                   ? h('span', { className: 'mss-note' }, state.direct ? '还没点任何符号' : '还没有内容')
                   : h('span', { className: 'mss-math' }, reading),
-                h('span', { className: 'mss-note' }, state.latex
-                  ? '· 插入时用这段 LaTeX'
-                  : '· sin²x → (sin x)²　· e3 → e³　· x5 → x⁵'),
+                state.flash === ''
+                  ? h('span', { className: 'mss-note' }, state.latex
+                    ? '· 插入时用这段 LaTeX'
+                    : '· sin²x → (sin x)²　· e3 → e³　· x5 → x⁵')
+                  : h('span', { className: 'mss-flash' }, state.flash),
               ),
             ),
             h('div', { className: 'mss-foot' },

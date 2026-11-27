@@ -64,6 +64,7 @@
   .draftrow{display:flex;align-items:center;gap:12px;min-height:48px;padding:9px 12px;border-radius:11px;
     border:1px solid var(--brand);box-shadow:0 0 0 4px rgba(65,118,230,.10);background:#fff}
   .tag{font-size:11.5px;color:var(--ink3)}
+  .copy{margin-left:auto;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink2);font:inherit;font-size:12px;padding:5px 10px}
   .drafttext{font-family:"Cambria Math",Consolas,monospace;font-size:17px}
   .caret{display:inline-block;width:1.5px;height:18px;background:var(--brand);vertical-align:-4px;margin-left:2px}
   .preview{display:flex;align-items:baseline;gap:10px;padding:10px 2px 0;font-size:12.5px;color:var(--ink2)}
@@ -198,6 +199,7 @@
         <div class="draftrow">
           <span class="tag">草稿</span>
           <div class="drafttext">limx→0 sinx<span class="caret"></span></div>
+          <button class="copy">复制</button>
         </div>
         <div class="preview">
           <span>LaTeX</span>
@@ -208,7 +210,7 @@
 
       <div class="foot">
         <span class="hint"><span class="kbd">Enter</span> 插入　<span class="kbd">Esc</span> 关闭</span>
-        <span class="ver">v0.3.6</span>
+        <span class="ver">v0.4.0</span>
         <span class="spacer"></span>
         <button class="btn">取消</button>
         <button class="btn primary">插入到输入框</button>

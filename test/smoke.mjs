@@ -356,6 +356,37 @@ dialog = render('math-symbols-panel');
 assert.ok(prevented, 'token backspace prevents the native single-char delete');
 assert.strictEqual(draftValue(), '', 'input backspace removes the whole ln token, got ' + draftValue());
 
+// ---- Shift+Tab toggles TeX ------------------------------------------------
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Tab', shiftKey: true, preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-lbl' && node.children === 'LaTeX').length > 0,
+  'Shift+Tab turns LaTeX on');
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Tab', shiftKey: true, preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-lbl' && node.children === '读作').length > 0,
+  'Shift+Tab turns LaTeX off again');
+
+// ---- insert hint ----------------------------------------------------------
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+cell(dialog, 'cos').props.onClick();
+dialog = render('math-symbols-panel');
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-flash'
+  && String(node.children).includes('已输入 cos')).length > 0, 'insert shows a hint');
+
+// ---- pointer inside the draft lets the arrow keys edit the caret ----------
+find(dialog, (node) => node.props && node.props.className === 'mss-draft')[0].props.onMouseEnter();
+dialog = render('math-symbols-panel');
+const beforeArrow = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus'))[0];
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
+dialog = render('math-symbols-panel');
+const afterArrow = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus'))[0];
+assert.strictEqual(afterArrow.props.title, beforeArrow.props.title, 'arrow keys do not move the grid while the pointer is in the draft');
+find(dialog, (node) => node.props && node.props.className === 'mss-draft')[0].props.onMouseLeave();
+dialog = render('math-symbols-panel');
+
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
 assert.strictEqual(render('math-symbols-panel'), null);
