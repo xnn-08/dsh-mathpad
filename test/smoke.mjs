@@ -160,7 +160,7 @@ assert.ok(versionTag, 'panel must show its version so a stale module is obvious'
 assert.ok(/^v\d+\.\d+\.\d+$/.test(textOf(versionTag)), 'version tag format, got ' + textOf(versionTag));
 
 const cells = cellsOf();
-assert.strictEqual(cells.length, 42, 'expected 42 symbols, got ' + cells.length);
+assert.strictEqual(cells.length, 41, 'expected 41 symbols, got ' + cells.length);
 assert.strictEqual(byClass(dialog, 'mss-sect').length, 5, 'expected 5 sections');
 
 // ---- sin3x: chips + digits + editable draft ------------------------------
@@ -235,7 +235,7 @@ assert.ok(titles.includes('插入 θ'), 'variable θ missing');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(cellsOf().length, 68, 'letters strip adds 26 cells');
+assert.strictEqual(cellsOf().length, 67, 'letters strip adds 26 cells');
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
 find(dialog, (node) => node.props && node.props.title === '插入 a' && typeof node.props.className === 'string' && node.props.className.includes('mss-letter-cell'))[0].props.onClick();
@@ -244,7 +244,7 @@ assert.strictEqual(draftValue(), 'a', 'letter a inserted');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(cellsOf().length, 42, 'letters strip collapses again');
+assert.strictEqual(cellsOf().length, 41, 'letters strip collapses again');
 
 // ---- hover selects (single visual state), arrows move, Enter outputs -----
 find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();

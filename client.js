@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.2';
+    const VERSION = '0.4.3';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -62,7 +62,6 @@ window.__ModuleLoader__.load({
           ['∮', '∮', '\\oint'],
           ['∂', '∂', '\\partial'],
           ['d', 'd', 'd'],
-          ['lim', 'lim', '\\lim'],
           ['lim→', 'lim()→()', '\\lim_{} \\to ', 4],
           ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3],
           ['→', '→', '\\to'],
