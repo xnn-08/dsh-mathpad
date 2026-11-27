@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Math symbols",
+    "description": "A math symbol panel above the composer with an editable draft and a number pad, so sin3x, sin3 x, e3 and x5 are all expressible; insert lands at the caret in the composer."
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "dsh-mathpad",
+  "version": "0.1.0",
+  "description": "Math symbol palette for the DeepSeek Harness composer: click-to-insert, editable draft, operators, and LaTeX conversion. DSH 输入框的数学符号面板：点选插入、可编辑草稿、运算符与 LaTeX 转换。",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "math",
+    "symbols",
+    "latex",
+    "composer"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xnn-08/dsh-mathpad.git"
+  },
+  "homepage": "https://github.com/xnn-08/dsh-mathpad#readme",
+  "bugs": {
+    "url": "https://github.com/xnn-08/dsh-mathpad/issues"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.5 <0.3.0-0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/*.png"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+    }
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  }
+}

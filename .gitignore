@@ -1,0 +1,16 @@
+# dependencies / build output
+node_modules/
+*.tgz
+pnpm-lock.yaml
+package-lock.json
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# local scratch
+*.local.md
+*.local.json
+_probe*

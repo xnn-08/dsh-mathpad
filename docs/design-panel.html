@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>数学符号面板 · 设计稿 v3</title>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f9fafb; --text:#0f1115; --text-2:#61666b; --text-3:#979da6;
+    --border:rgba(0,0,0,.07); --border-strong:rgba(0,0,0,.12); --brand:#4176e6; --brand-soft:rgba(65,118,230,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;color:var(--text);
+    background:var(--bg);display:flex;height:100vh;overflow:hidden;font-size:14px}
+  .side{width:236px;flex:none;background:var(--bg-soft);border-right:1px solid var(--border);padding:14px 12px;display:flex;flex-direction:column;gap:6px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:600;padding:6px 8px 14px}
+  .brand .dot{width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,#4176e6,#7aaaff);display:grid;place-items:center;color:#fff;font-size:11px}
+  .nav{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;color:var(--text-2);font-size:13px}
+  .nav.active{background:#fff;border:1px solid var(--border);color:var(--text)}
+  .side .label{margin:14px 8px 4px;font-size:11px;color:var(--text-3);letter-spacing:.04em}
+  .session{padding:7px 8px;border-radius:8px;color:var(--text-2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .session.active{background:#eef2fb;color:#2b4d9e}
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-2)}
+  .topbar .title{color:var(--text);font-weight:600}
+  .chip{margin-left:auto;font-size:12px;color:var(--text-2);border:1px solid var(--border);padding:3px 9px;border-radius:999px;background:var(--bg-soft)}
+  .thread{flex:1;overflow:hidden;padding:22px 26px;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:76%;line-height:1.75;font-size:14px}
+  .msg.user{align-self:flex-end;background:#eef2fb;border-radius:14px 14px 4px 14px;padding:10px 14px;color:#1b2a4a}
+  .msg.ai{align-self:flex-start;color:#20242b}
+  .msg.ai .h{font-weight:600;margin-bottom:4px}
+  .formula{display:inline-block;background:var(--bg-soft);border:1px solid var(--border);border-radius:8px;padding:2px 8px;font-family:"Cambria Math","Segoe UI",serif}
+  .composer{padding:12px 26px 18px}
+  .card{border:1px solid var(--border-strong);border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(15,17,21,.04);padding:12px 12px 10px}
+  .placeholder{color:var(--text-3);padding:2px 4px 14px}
+  .cardrow{display:flex;align-items:center;gap:8px}
+  .tool{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text-2);display:grid;place-items:center;font-size:13px}
+  .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .iconbtn{width:28px;height:28px;border-radius:8px;border:none;background:transparent;color:var(--text-2);
+    display:grid;place-items:center;font-size:15px;font-family:"Cambria Math","Segoe UI",serif;cursor:pointer}
+  .iconbtn:hover{background:var(--bg-soft);color:var(--text)}
+  .mode{font-size:12px;color:var(--text-2);border:1px solid var(--border);border-radius:999px;padding:2px 10px}
+  .send{margin-left:0;width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px}
+
+  .scrim{position:fixed;inset:0;background:rgba(15,17,21,.26);display:grid;place-items:center;padding:24px}
+  .dialog{width:660px;max-width:calc(100vw - 48px);background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,.05);
+    box-shadow:0 24px 64px rgba(15,17,21,.24),0 2px 8px rgba(15,17,21,.08);overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 64px)}
+  .dhead{display:flex;align-items:flex-start;gap:10px;padding:18px 20px 10px}
+  .dhead h1{font-size:16px;margin:0;font-weight:600}
+  .dhead p{margin:3px 0 0;font-size:12px;color:var(--text-2)}
+  .close{margin-left:auto;width:28px;height:28px;border-radius:8px;border:none;background:transparent;color:var(--text-3);font-size:17px;cursor:pointer}
+  .mode{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border-strong);
+    background:#fff;color:var(--text-2);cursor:pointer}
+  .searchwrap{padding:0 20px}
+  .search{width:100%;height:36px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-soft);
+    padding:0 12px;font:inherit;font-size:13px;color:var(--text);outline:none}
+  .search::placeholder{color:var(--text-3)}
+  .body{padding:12px 20px 0;overflow:auto}
+  .sect{display:flex;align-items:flex-start;gap:10px;padding:6px 0}
+  .sect + .sect{border-top:1px solid var(--border)}
+  .sect .sname{width:86px;flex:none;font-size:11.5px;color:var(--text-3);padding-top:9px;letter-spacing:.02em}
+  .cells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;flex:1}
+  .sym{border:1px solid var(--border);border-radius:9px;background:#fff;padding:7px 4px 6px;text-align:center;cursor:pointer}
+  .sym:hover{border-color:rgba(65,118,230,.45);background:#f7f9fe}
+  .sym .g{font-family:"Cambria Math","Segoe UI",serif;font-size:15px;line-height:1.25;color:#20242b}
+  .sym .c{font-size:10px;color:var(--text-3);margin-top:1px;font-family:Consolas,monospace}
+  .keypad{display:flex;gap:6px;padding:2px 20px 10px;flex-wrap:wrap}
+  .key{min-width:32px;height:30px;padding:0 9px;border-radius:8px;border:1px solid var(--border-strong);background:#fff;
+    color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .key:hover{background:var(--bg-soft)}
+  .key.space{color:var(--text-2);font-size:12px}
+  .key.clear{margin-left:auto;color:var(--text-2)}
+  .draft{margin:0 20px;border-top:1px solid var(--border);padding-top:12px}
+  .draftrow{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;
+    border:1px solid rgba(65,118,230,.4);background:#fbfcff;box-shadow:0 0 0 3px rgba(65,118,230,.08)}
+  .draftrow .tag{font-size:11px;color:var(--text-3);flex:none}
+  .draftinput{flex:1;border:none;outline:none;background:transparent;font-family:"Cambria Math",Consolas,monospace;
+    font-size:16px;color:#20242b;min-width:0}
+  .draftinput::placeholder{color:var(--text-3);font-family:"Segoe UI","Microsoft YaHei",sans-serif;font-size:13px}
+  .caret{display:inline-block;width:1.5px;height:17px;background:#4176e6;vertical-align:-3px;margin-left:1px}
+  .preview{display:flex;align-items:baseline;gap:8px;padding:8px 2px 0;font-size:12px;color:var(--text-2);min-height:22px}
+  .preview .lbl{color:var(--text-3)}
+  .preview .math{font-family:"Cambria Math",serif;font-size:14px;color:#20242b}
+  .preview .note{color:var(--text-3);font-size:11.5px}
+  .dfoot{display:flex;align-items:center;gap:10px;margin:14px 20px 18px}
+  .hint{font-size:11.5px;color:var(--text-3)}
+  .btn{font:inherit;font-size:13px;border-radius:9px;padding:8px 14px;cursor:pointer;border:1px solid var(--border-strong);background:#fff;color:var(--text-2)}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:500}
+  .kbd{font-family:Consolas,monospace;font-size:10.5px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--text-2);background:#fff}
+</style>
+</head>
+<body>
+  <aside class="side">
+    <div class="brand"><span class="dot">D</span> DeepSeek Harness</div>
+    <div class="nav active">＋ 新建对话</div>
+    <div class="nav">⌕ 搜索</div>
+    <div class="label">最近</div>
+    <div class="session active">80学时完成高数上册</div>
+    <div class="session">不定积分 · 换元法整理</div>
+    <div class="session">泰勒展开错题复盘</div>
+    <div class="session">极限 1∞ 型专项</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar"><span class="title">80学时完成高数上册</span><span class="chip">deepseek-v4-pro</span></div>
+    <div class="thread">
+      <div class="msg user">这题先拆成 <span class="formula">sin2x</span> 和 <span class="formula">cos2 x</span> 再积分对吗？</div>
+      <div class="msg ai">
+        <div class="h">对，方向没问题。</div>
+        第一项用二倍角公式拆开，第二项先降幂再积分。你先按约定把式子敲进输入框，我按你的记号直接算。
+      </div>
+    </div>
+    <div class="composer">
+      <div class="card">
+        <div class="placeholder">给 DeepSeek 发送消息…</div>
+        <div class="cardrow">
+          <div class="tool">＋</div>
+          <div class="mode">完全权限</div>
+          <div class="right">
+            <button class="iconbtn" title="数学符号面板"><span style="display:block;transform:translateY(-2.1px)">∑</span></button>
+            <div class="mode">识图</div>
+            <div class="mode">DeepSeek-V4.1-Flash Max</div>
+            <div class="send">↑</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scrim">
+    <div class="dialog">
+      <div class="dhead">
+        <div>
+          <h1>数学符号</h1>
+          <p>点符号填空、直接改草稿 · 插入到输入框光标处</p>
+        </div>
+        <button class="mode">⌨ 草稿</button>
+        <button class="mode">TeX</button>
+        <button class="close">×</button>
+      </div>
+
+      <div class="body">
+        <div class="sect">
+          <div class="sname">基本初等函数</div>
+          <div class="cells">
+            <div class="sym"><div class="g">sin</div><div class="c">sin</div></div>
+            <div class="sym"><div class="g">cos</div><div class="c">cos</div></div>
+            <div class="sym"><div class="g">tan</div><div class="c">tan</div></div>
+            <div class="sym"><div class="g">cot</div><div class="c">cot</div></div>
+            <div class="sym"><div class="g">sec</div><div class="c">sec</div></div>
+            <div class="sym"><div class="g">csc</div><div class="c">csc</div></div>
+            <div class="sym"><div class="g">arcsin</div><div class="c">arcsin</div></div>
+            <div class="sym"><div class="g">arccos</div><div class="c">arccos</div></div>
+            <div class="sym"><div class="g">arctan</div><div class="c">arctan</div></div>
+            <div class="sym"><div class="g">eˣ</div><div class="c">e</div></div>
+            <div class="sym"><div class="g">ln</div><div class="c">ln</div></div>
+            <div class="sym"><div class="g">xⁿ</div><div class="c">x</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">幂与根</div>
+          <div class="cells">
+            <div class="sym"><div class="g">x²</div><div class="c">x2</div></div>
+            <div class="sym"><div class="g">x³</div><div class="c">x3</div></div>
+            <div class="sym"><div class="g">xⁿ</div><div class="c">x n</div></div>
+            <div class="sym"><div class="g">√</div><div class="c">√</div></div>
+            <div class="sym"><div class="g">( )</div><div class="c">( )</div></div>
+            <div class="sym"><div class="g">␣</div><div class="c">空格</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">积分与极限</div>
+          <div class="cells">
+            <div class="sym"><div class="g">∫</div><div class="c">∫</div></div>
+            <div class="sym"><div class="g">∮</div><div class="c">∮</div></div>
+            <div class="sym"><div class="g">∂</div><div class="c">∂</div></div>
+            <div class="sym"><div class="g">d</div><div class="c">d</div></div>
+            <div class="sym"><div class="g">lim</div><div class="c">lim</div></div>
+            <div class="sym"><div class="g">→</div><div class="c">→</div></div>
+            <div class="sym"><div class="g">π</div><div class="c">π</div></div>
+            <div class="sym"><div class="g">∞</div><div class="c">∞</div></div>
+          </div>
+        </div>
+
+        <div class="sect">
+          <div class="sname">运算</div>
+          <div class="cells">
+            <div class="sym"><div class="g">+</div><div class="c">+</div></div>
+            <div class="sym"><div class="g">−</div><div class="c">−</div></div>
+            <div class="sym"><div class="g">×</div><div class="c">×</div></div>
+            <div class="sym"><div class="g">÷</div><div class="c">÷</div></div>
+            <div class="sym"><div class="g">=</div><div class="c">=</div></div>
+            <div class="sym"><div class="g">.</div><div class="c">.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="keypad">
+        <button class="key">1</button><button class="key">2</button><button class="key">3</button>
+        <button class="key">4</button><button class="key">5</button><button class="key">6</button>
+        <button class="key">7</button><button class="key">8</button><button class="key">9</button>
+        <button class="key">0</button>
+        <button class="key space">␣ 次方</button>
+        <button class="key clear">⌫ 删除</button>
+      </div>
+
+      <div class="draft">
+        <div class="draftrow">
+          <span class="tag">草稿</span>
+          <input class="draftinput" value="sin3x" placeholder="点符号，或者直接在这里打字">
+        </div>
+        <div class="preview">
+          <span class="lbl">读作</span>
+          <span class="math">sin(3x)</span>
+          <span class="note">· 空格 + 次数 = 次方：sin3 x → sin³x</span>
+        </div>
+      </div>
+
+      <div class="dfoot">
+        <span class="hint"><span class="kbd">Enter</span> 插入　<span class="kbd">Esc</span> 关闭</span>
+        <button class="btn">取消</button>
+        <button class="btn primary">插入到输入框</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

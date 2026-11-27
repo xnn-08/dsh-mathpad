@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>∑ 外框：G2 连续曲率圆角</title>
+<style>
+  :root{--text:#0f1115;--text2:#61666b;--line:#c9d3e3;--brand:#4176e6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef1f6;color:var(--text);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    padding:26px 30px;display:flex;gap:26px;align-items:flex-start;flex-wrap:nowrap}
+  .panel{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:18px 20px;box-shadow:0 1px 2px rgba(15,17,21,.05)}
+  .panel:first-child{width:380px}
+  .panel:last-child{width:610px}
+  h2{margin:0 0 14px;font-size:14px;font-weight:600}
+  .note{margin:10px 0 0;font-size:12px;color:var(--text2);line-height:1.7}
+  .stage{display:flex;align-items:center;gap:26px}
+  .btn{position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center}
+  .btn svg{position:absolute;overflow:visible}
+  .btn .sigma{font-size:24px;line-height:0;transform:translateY(var(--ink,-4.2px));font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+  .btn.rest svg .line{stroke:#9aa4b4;opacity:.5}
+  .btn.hover svg .line{stroke:#5a6b8c;opacity:.75}
+  .btn.hover svg .fill{fill:#5a6b8c;opacity:.05}
+  .cap{font-size:12px;color:var(--text2);text-align:center;margin-top:8px}
+  .curve{display:block}
+  .legend{display:flex;gap:16px;font-size:11.5px;color:var(--text2);margin-top:8px}
+  .swatch{display:inline-block;width:18px;height:0;border-top-width:2px;border-top-style:solid;vertical-align:middle;margin-right:6px}
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h2>28px 按钮（几何 2× 展示）</h2>
+    <div class="stage">
+      <div>
+        <div class="btn rest" id="btnRest"></div>
+        <div class="cap">静止：细框 26%</div>
+      </div>
+      <div>
+        <div class="btn hover" id="btnHover"></div>
+        <div class="cap">悬停：框 62% + 5% 填充</div>
+      </div>
+    </div>
+    <p class="note">直边保持平直；圆角中段是一段定曲率圆弧（R=8）；两端用曲率线性爬升的过渡接入直边，κ(s) 连续、无跳变。框比热区每边外扩 1px（膨胀量）。</p>
+  </div>
+
+  <div class="panel">
+    <h2>曲率 κ(s) 沿轮廓</h2>
+    <canvas id="plot" class="curve" width="460" height="190"></canvas>
+    <div class="legend">
+      <span><span class="swatch" style="border-color:#4176e6"></span>G2 过渡（直边 → 圆弧 → 直边）</span>
+      <span><span class="swatch" style="border-color:#d05a5a"></span>普通圆角（曲率跳变）</span>
+    </div>
+    <p class="note">普通圆角在直边与圆弧的接点从 0 直接跳到 1/R；G2 版本用线性爬升，接点处曲率为 0、圆弧段恒为 1/R。</p>
+  </div>
+
+<script>
+  var SIZE = 56, BULGE = 2, R = 16, L = 8.8, PAD = 2;
+  var BOX = SIZE + BULGE * 2;
+  var VIEW = BOX + PAD * 2;
+  var INSET = -(VIEW - SIZE) / 2;
+
+  function framePath(size, radius, transition, padding) {
+    var thetaR = transition / (2 * radius);
+    var thetaA = Math.PI / 2 - 2 * thetaR;
+    var total = 2 * transition + radius * thetaA;
+    var samples = 44, sub = 10, h = total / (samples * sub);
+    function kappa(u) {
+      if (u <= 0) return 0;
+      if (u < transition) return u / (radius * transition);
+      if (u < transition + radius * thetaA) return 1 / radius;
+      if (u < total) return (total - u) / (radius * transition);
+      return 0;
+    }
+    var x = 0, y = 0, theta = 0, s = 0, pts = [[0, 0]];
+    for (var i = 0; i < samples * sub; i++) {
+      var kMid = kappa(s + h / 2);
+      var thMid = theta + kMid * h / 2;
+      x += Math.cos(thMid) * h;
+      y += Math.sin(thMid) * h;
+      theta += kappa(s + h) * h;
+      s += h;
+      if ((i + 1) % sub === 0) pts.push([x, y]);
+    }
+    pts.push([x, y]);
+    var endX = x;
+    var placed = pts.map(function (p) { return [size - endX + p[0] + padding, p[1] + padding]; });
+    function rot(p, deg) {
+      var a = deg * Math.PI / 180, c = size / 2 + padding;
+      var dx = p[0] - c, dy = p[1] - c;
+      return [c + dx * Math.cos(a) - dy * Math.sin(a), c + dx * Math.sin(a) + dy * Math.cos(a)];
+    }
+    var pieces = [0, 90, 180, 270].map(function (deg) { return placed.map(function (p) { return rot(p, deg); }); });
+    function f(v) { return v.toFixed(2); }
+    var d = '';
+    for (var i2 = 0; i2 < pieces.length; i2++) {
+      var piece = pieces[i2];
+      if (i2 === 0) d += 'M ' + f(piece[0][0]) + ' ' + f(piece[0][1]);
+      for (var k = 1; k < piece.length; k++) d += ' L ' + f(piece[k][0]) + ' ' + f(piece[k][1]);
+      var next = pieces[(i2 + 1) % 4][0];
+      d += ' L ' + f(next[0]) + ' ' + f(next[1]);
+    }
+    return d + ' Z';
+  }
+
+  var d = framePath(BOX, R, L, PAD);
+  ['btnRest', 'btnHover'].forEach(function (id) {
+    var host = document.getElementById(id);
+    host.innerHTML =
+      '<svg width="' + VIEW + '" height="' + VIEW + '" viewBox="0 0 ' + VIEW + ' ' + VIEW + '" style="left:' + INSET + 'px;top:' + INSET + 'px">' +
+      '<path class="fill" d="' + d + '" fill="none"/>' +
+      '<path class="line" d="' + d + '" fill="none" stroke-width="2"/>' +
+      '</svg><span class="sigma">∑</span>';
+  });
+
+  // curvature plot
+  var canvas = document.getElementById('plot');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height, padL = 34, padB = 26, padT = 14, padR = 12;
+  function map(s, k, smax, kmax) {
+    return [padL + (s / smax) * (W - padL - padR), H - padB - (k / kmax) * (H - padT - padB)];
+  }
+  ctx.clearRect(0, 0, W, H);
+  // axes
+  ctx.strokeStyle = '#d7dde8'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, H - padB); ctx.lineTo(W - padR, H - padB); ctx.stroke();
+  ctx.fillStyle = '#8a93a3'; ctx.font = '11px Consolas, monospace';
+  ctx.fillText('κ', 8, padT + 8);
+  ctx.fillText('s →', W - padR - 26, H - 8);
+  ctx.fillText('1/R', 6, padT + 34);
+  ctx.fillText('0', 20, H - padB + 12);
+
+  var thetaR = L / (2 * R), thetaA = Math.PI / 2 - 2 * thetaR;
+  var total = 2 * L + R * thetaA, kmax = 1 / R;
+  function plot(fn, color) {
+    ctx.beginPath();
+    for (var i = 0; i <= 300; i++) {
+      var s = (i / 300) * total;
+      var p = map(s, fn(s), total, kmax);
+      if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  }
+  plot(function (s) {
+    if (s < L) return s / (R * L);
+    if (s < L + R * thetaA) return 1 / R;
+    if (s < total) return (total - s) / (R * L);
+    return 0;
+  }, '#4176e6');
+  plot(function (s) {
+    if (s < R * (Math.PI / 2)) return 1 / R;
+    return 0;
+  }, '#d05a5a');
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>∑ 在自己盒子里的上下留白</title>
+<style>
+  :root{--text:#0f1115;--text2:#61666b;--brand:#4176e6}
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef1f6;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:var(--text);
+    display:flex;align-items:flex-start;justify-content:center;gap:80px;padding:40px 0 0}
+  .demo{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+    border:1px dashed rgba(65,118,230,.75);background:#fff;padding:0}
+  .btn span{display:block;font-size:12px;line-height:1}
+  .new span{transform:translateY(var(--shift, 0px))}
+  .cap{font-size:13px;color:#3c434f;text-align:center;line-height:1.6}
+  .cap b{color:#2b4d9e}
+  .zoom{transform:scale(6);transform-origin:center}
+  .zone{height:200px;display:grid;place-items:center;width:220px}
+</style>
+</head>
+<body>
+  <div class="demo">
+    <div class="zone"><div class="zoom"><div class="btn old"><span>∑</span></div></div></div>
+    <div class="cap"><b>旧</b>：盒子居中<br>上 <span id="oldTop">?</span>px / 下 <span id="oldBottom">?</span>px</div>
+  </div>
+  <div class="demo">
+    <div class="zone"><div class="zoom"><div class="btn new" id="newBtn"><span>∑</span></div></div></div>
+    <div class="cap"><b>新</b>：墨迹居中<br>上 <span id="newTop">?</span>px / 下 <span id="newBottom">?</span>px</div>
+  </div>
+<script>
+  (function () {
+    var span = document.querySelector('#newBtn span');
+    var style = getComputedStyle(span);
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    var size = parseFloat(style.fontSize);
+    var scale = 10;
+    ctx.font = style.fontStyle + ' ' + style.fontWeight + ' ' + (size * scale) + 'px ' + style.fontFamily;
+    var m = ctx.measureText('∑');
+    var inkAscent = m.actualBoundingBoxAscent / scale;
+    var inkDescent = m.actualBoundingBoxDescent / scale;
+    var fontAscent = m.fontBoundingBoxAscent / scale;
+    var fontDescent = m.fontBoundingBoxDescent / scale;
+
+    // 行内盒（line-height:1 → 12px）在 28px 盒子里居中，基线位置由半行距决定
+    var lineHeight = size;
+    var boxHeight = 28;
+    var lineTop = (boxHeight - lineHeight) / 2;
+    var baseline = lineTop + (lineHeight - (fontAscent + fontDescent)) / 2 + fontAscent;
+
+    var shift = ((boxHeight / 2) - (baseline + (inkDescent - inkAscent) / 2));
+    span.style.setProperty('--shift', shift.toFixed(2) + 'px');
+    document.getElementById('newBtn').style.setProperty('--shift', shift.toFixed(2) + 'px');
+
+    var oldTop = baseline - inkAscent;
+    var oldBottom = boxHeight - (baseline + inkDescent);
+    document.getElementById('oldTop').textContent = oldTop.toFixed(1);
+    document.getElementById('oldBottom').textContent = oldBottom.toFixed(1);
+    document.getElementById('newTop').textContent = (oldTop + shift).toFixed(1);
+    document.getElementById('newBottom').textContent = (oldBottom - shift).toFixed(1);
+  })();
+</script>
+</body>
+</html>
