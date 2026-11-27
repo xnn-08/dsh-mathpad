@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.1.0';
+    const VERSION = '0.1.1';
 
     // ---------------------------------------------------------------------
     // 面板里的符号：点一下把 text 插到草稿光标处。
@@ -715,10 +715,12 @@ window.__ModuleLoader__.load({
           /* 日志失败不影响功能 */
         }
 
+        // order 1000：这个列表按升序排在模型选择器之前，最后一项就是紧贴模型左侧。
+        // 以后若有插件用更大的 order，它会占住这个位置，我们自动往左移。
         ctx.slots.inject('conversation.input.right', () => ctx.slots.register({
           name: 'conversation.input.right',
           id: 'math-symbols',
-          order: 35,
+          order: 1000,
         }, MathSymbolsTrigger));
 
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
