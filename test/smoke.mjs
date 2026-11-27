@@ -111,15 +111,11 @@ const isCell = (node) => node.props && typeof node.props.className === 'string'
   && node.props.className.split(' ').includes('mss-cell') && !node.props.className.includes('mss-toggle');
 const cellsOf = () => find(dialog, isCell);
 const cell = (tree, glyph) => find(tree, (node) => isCell(node) && node.props.title === '插入 ' + glyph)[0];
-// 单击 = 选中（不输出），双击 = 插入
+// 单击 = 选中 + 输出
 const clickCell = (glyph) => {
   const button = cell(dialog, glyph);
   assert.ok(button, 'cell missing: ' + glyph);
   button.props.onClick();
-  dialog = render('math-symbols-panel');
-  const again = cell(dialog, glyph);
-  assert.ok(again && typeof again.props.onDoubleClick === 'function', 'double-click handler missing: ' + glyph);
-  again.props.onDoubleClick();
   dialog = render('math-symbols-panel');
 };
 const clickKey = (label) => {
@@ -241,33 +237,23 @@ find(dialog, (node) => node.props && typeof node.props.className === 'string' &&
 dialog = render('math-symbols-panel');
 assert.strictEqual(cellsOf().length, 39, 'letters strip collapses again');
 
-// ---- hover a section, arrows move focus, Enter inserts the focused cell ---
+// ---- hover selects (single visual state), arrows move, Enter outputs -----
 find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();
 dialog = render('math-symbols-panel');
+assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus')).length > 0, 'hover shows the selection ring');
+
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
 dialog = render('math-symbols-panel');
 const focused = find(dialog, (node) => node.props && typeof node.props.className === 'string'
   && node.props.className.includes('mss-cell-focus'))[0];
 assert.ok(focused, 'focused cell missing after ArrowRight');
 assert.strictEqual(focused.props.title, '插入 y', 'ArrowRight moves focus to y, got ' + focused.props.title);
-byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Enter', preventDefault() {} });
-dialog = render('math-symbols-panel');
-assert.ok(draftValue().endsWith('y'), 'Enter inserts the focused variable, got ' + draftValue());
 
-// ---- single focus: hover preview vs keyboard ring, cross-section movement --
-find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();
+// Enter inside the draft input must not swallow the selection
+byClass(dialog, 'mss-draftinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
 dialog = render('math-symbols-panel');
-assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
-  && node.props.className.includes('mss-cell-preview')).length > 0, 'hover shows a faint preview');
-assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
-  && node.props.className.includes('mss-cell-focus')).length, 0, 'no strong ring before a key is pressed');
-
-byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
-dialog = render('math-symbols-panel');
-assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
-  && node.props.className.includes('mss-cell-preview')).length, 0, 'preview becomes a strong ring on key press');
-assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
-  && node.props.className.includes('mss-cell-focus')).length > 0, 'keyboard ring present');
+assert.ok(draftValue().endsWith('y'), 'Enter from the draft input outputs the selected cell, got ' + draftValue());
 
 for (let step = 0; step < 10; step += 1) {
   byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
@@ -280,20 +266,16 @@ assert.strictEqual(crossed.props.title, '插入 sin', 'arrow keys cross into the
 find(dialog, (node) => node.props && node.props.className === 'mss-body')[0].props.onMouseLeave();
 dialog = render('math-symbols-panel');
 assert.strictEqual(find(dialog, (node) => node.props && typeof node.props.className === 'string'
-  && (node.props.className.includes('mss-cell-focus') || node.props.className.includes('mss-cell-preview'))).length, 0,
-'silent when the pointer leaves the grid');
+  && node.props.className.includes('mss-cell-focus')).length, 0, 'silent when the pointer leaves the grid');
 
-// ---- click = select, double-click = output -------------------------------
+// ---- single click selects and outputs ------------------------------------
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
 cell(dialog, 'sin').props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(draftValue(), '', 'single click must select, not insert');
+assert.strictEqual(draftValue(), 'sin', 'single click inserts');
 assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
-  && node.props.className.includes('mss-cell-focus')).length > 0, 'single click shows the focus ring');
-cell(dialog, 'sin').props.onDoubleClick();
-dialog = render('math-symbols-panel');
-assert.strictEqual(draftValue(), 'sin', 'double click inserts');
+  && node.props.className.includes('mss-cell-focus')).length > 0, 'single click also selects');
 
 // ---- keypad is reachable with Tab and Enter runs the focused key ----------
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });

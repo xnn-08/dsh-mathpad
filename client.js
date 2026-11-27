@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.2';
+    const VERSION = '0.3.3';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -440,7 +440,6 @@ window.__ModuleLoader__.load({
       .mss-cell{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.1));border-radius:9px;background:transparent;
         color:inherit;padding:7px 4px 6px;text-align:center;cursor:pointer;font:inherit}
       .mss-cell:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.05))}
-      .mss-cell-preview{border-color:var(--dsw-alias-state-business-primary, #4176e6);background:rgba(65,118,230,.05)}
       .mss-glyph{font-family:"Cambria Math","Segoe UI",serif;font-size:15px;line-height:1.25}
       .mss-code{font-size:10px;opacity:.55;margin-top:1px;font-family:Consolas,"SF Mono",monospace}
       .mss-keypad{display:flex;gap:6px;padding:2px 20px 10px;flex-wrap:wrap}
@@ -629,6 +628,11 @@ window.__ModuleLoader__.load({
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
           event.stopPropagation();
+          // 方向键选中了格子时，Enter 输出那个格子，而不是被“空草稿”吞掉。
+          if (state.mode === 'selected') {
+            triggerItem(sectionIndex(), state.focusIndex);
+            return;
+          }
           insertDraft();
         }
       };
@@ -665,17 +669,17 @@ window.__ModuleLoader__.load({
         const i = state.focusIndex;
         if (dx !== 0) {
           const next = i + dx;
-          if (next >= 0 && next < items.length) { setFocus(si, next, 'key'); return; }
+          if (next >= 0 && next < items.length) { setFocus(si, next, 'selected'); return; }
           const target = si + dx;
           if (target < 0 || target >= NAV_IDS.length) return;
-          setFocus(target, dx > 0 ? 0 : itemsOf(target).length - 1, 'key');
+          setFocus(target, dx > 0 ? 0 : itemsOf(target).length - 1, 'selected');
           return;
         }
         const next = i + dy;
-        if (next >= 0 && next < items.length) { setFocus(si, next, 'key'); return; }
+        if (next >= 0 && next < items.length) { setFocus(si, next, 'selected'); return; }
         const target = si + (dy > 0 ? 1 : -1);
         if (target < 0 || target >= NAV_IDS.length) return;
-        setFocus(target, Math.min(i, itemsOf(target).length - 1), 'key');
+        setFocus(target, Math.min(i, itemsOf(target).length - 1), 'selected');
       };
 
       // 输出：符号插入文本，键盘按键执行自己的动作。
@@ -699,13 +703,13 @@ window.__ModuleLoader__.load({
           event.preventDefault();
           const si = sectionIndex();
           const next = (si + (event.shiftKey ? -1 : 1) + NAV_IDS.length) % NAV_IDS.length;
-          setFocus(next, 0, 'key');
+          setFocus(next, 0, 'selected');
           return;
         }
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
-          // Enter 只负责“输出当前选中项”，不再兼作关闭；空草稿也不关面板。
-          if (state.mode === 'idle') {
+          // Enter 输出当前选中项；没有选中项时才退化为插入草稿（空草稿不关面板）。
+          if (state.mode !== 'selected') {
             if (!state.direct) insertDraft();
             return;
           }
@@ -745,7 +749,7 @@ window.__ModuleLoader__.load({
               sections.map((section) => h('div', {
                 key: section.id,
                 className: 'mss-sect',
-                onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0, mode: 'hover' }),
+                onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0, mode: 'selected' }),
               },
                 h('div', { className: 'mss-sname' }, section.name),
                 h('div', { className: 'mss-cellwrap' },
@@ -754,16 +758,13 @@ window.__ModuleLoader__.load({
                       key: item.glyph + item.text,
                       type: 'button',
                       className: 'mss-cell'
-                        + (state.mode === 'key' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : '')
-                        + (state.mode === 'hover' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-preview' : ''),
+                        + (state.mode === 'selected' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : ''),
                       title: '插入 ' + item.text,
                       onMouseDown: keepFocus,
                       onClick: () => {
-                        patchPanel({ activeSection: section.id, focusIndex: index, mode: 'key' });
-                        // 直插模式单击就是输出；草稿模式单击只选中，双击才插入。
-                        if (state.direct) insertSnippet(item.text);
+                        patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' });
+                        insertSnippet(item.text);
                       },
-                      onDoubleClick: () => { if (!state.direct) insertSnippet(item.text); },
                     },
                       h('div', { className: 'mss-glyph' }, item.glyph),
                       h('div', { className: 'mss-code' }, item.text === ' ' ? '空格' : item.text),
@@ -805,10 +806,10 @@ window.__ModuleLoader__.load({
                 className: 'mss-key'
                   + (key.id === 'sup' && state.sup ? ' mss-key-on' : '')
                   + (key.id === 'backspace' ? ' mss-key-clear' : '')
-                  + (state.mode === 'key' && state.activeSection === 'keys' && state.focusIndex === index ? ' mss-key-focus' : ''),
+                  + (state.mode === 'selected' && state.activeSection === 'keys' && state.focusIndex === index ? ' mss-key-focus' : ''),
                 onMouseDown: keepFocus,
                 onClick: () => {
-                  patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'key' });
+                  patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'selected' });
                   key.run();
                 },
               }, key.label)),
