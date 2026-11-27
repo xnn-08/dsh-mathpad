@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.2.0';
+    const VERSION = '0.3.0';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -48,8 +48,8 @@ window.__ModuleLoader__.load({
         id: 'pow',
         name: '幂与根',
         items: [
-          ['x²', 'x2', 'x^{2}'],
-          ['x³', 'x3', 'x^{3}'],
+          ['x²', 'x²', 'x^{2}'],
+          ['x³', 'x³', 'x^{3}'],
           ['√', '√', '\\sqrt'],
         ],
       },
@@ -100,27 +100,33 @@ window.__ModuleLoader__.load({
     }
     LATEX_SYMBOLS.sort((a, b) => b[0].length - a[0].length);
 
-    const SUPERSCRIPTS = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+    // Unicode 上标：幂次直接插字符，不再用“空格 = 次方”。
+    const SUPERSCRIPT_DIGITS = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    const SUPERSCRIPT_LATEX = {
+      '⁰': '^{0}', '¹': '^{1}', '²': '^{2}', '³': '^{3}', '⁴': '^{4}',
+      '⁵': '^{5}', '⁶': '^{6}', '⁷': '^{7}', '⁸': '^{8}', '⁹': '^{9}', 'ⁿ': '^{n}',
+    };
 
     /**
-     * 把草稿按我们的约定翻译成人话，用来给用户确认：
-     *   sin3x → sin(3x)    （无空格 = 倍数）
-     *   sin3 x → sin³(x)   （有空格 = 次方）
-     *   e3 → e³ ／ x5 → x⁵ （e、x 后面的数字 = 指数）
+     * 把草稿翻译成人话，用来给用户确认：
+     *   sin²x → (sin x)²     （上标紧跟函数名 = 函数的幂）
+     *   sin3x → sin(3x)      （没有空格 = 倍数，保留旧写法）
+     *   e3 → e³ ／ x5 → x⁵   （e、x 后面的数字 = 指数）
      * 只做展示，插入的始终是草稿原文。
      */
     const explain = (raw) => {
       let out = raw;
       for (const fn of FUNCS) {
         const escaped = fn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        out = out.replace(new RegExp(escaped + '([0-9]+) +([a-zA-Z])', 'g'), (match, power, arg) => fn + '^' + power + '(' + arg + ')');
+        out = out.replace(new RegExp(escaped + '([⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ]+)([a-zA-Z])', 'g'),
+          (match, power, arg) => '(' + fn + ' ' + arg + ')' + power);
         out = out.replace(new RegExp(escaped + '([0-9]+)([a-zA-Z(])', 'g'), (match, multiple, arg) => fn + '(' + multiple + arg + ')');
         out = out.replace(new RegExp(escaped + '([a-zA-Z])', 'g'), (match, arg) => fn + '(' + arg + ')');
       }
-      out = out.replace(/(^|[^a-zA-Z])e([0-9]+)/g, (match, prefix, power) => prefix + 'e^' + power);
-      out = out.replace(/ex(?![a-zA-Z])/g, 'e^x');
-      out = out.replace(/(^|[^a-zA-Z])x([0-9]+)/g, (match, prefix, power) => prefix + 'x^' + power);
-      return out.replace(/\^([0-9])/g, (match, digit) => SUPERSCRIPTS[digit] ?? match);
+      out = out.replace(/(^|[^a-zA-Z])e([0-9]+)/g, (match, prefix, power) => prefix + 'e' + (SUPERSCRIPT_DIGITS[Number(power)] ?? power));
+      out = out.replace(/ex(?![a-zA-Z])/g, 'eˣ');
+      out = out.replace(/(^|[^a-zA-Z])x([0-9]+)/g, (match, prefix, power) => prefix + 'x' + (SUPERSCRIPT_DIGITS[Number(power)] ?? power));
+      return out;
     };
 
     // ---------------------------------------------------------------------
@@ -135,6 +141,9 @@ window.__ModuleLoader__.load({
       direct: false,
       latex: false,
       letters: false,
+      sup: false,
+      activeSection: 'vars',
+      focusIndex: 0,
       chain: [],
     };
     // 草稿里最后的光标位置：点击符号时插在这里，而不是总插到末尾。
@@ -190,12 +199,16 @@ window.__ModuleLoader__.load({
      */
     const toLatex = (raw) => {
       let out = raw;
+      // 分式模板 (分子)/(分母) → \frac{分子}{分母}
+      out = out.replace(/\(([^()]*)\)\/\(([^()]*)\)/g, (match, numerator, denominator) => '\\frac{' + numerator + '}{' + denominator + '}');
       // 函数名：长名优先；后面紧跟字母/数字时补一个空格（\sin x 而不是 \sinx）
       const fnRe = new RegExp('(?<!\\\\)(' + FUNCS.join('|') + ')', 'g');
       out = out.replace(fnRe, (match, _name, offset, whole) => {
         const next = whole[offset + match.length] ?? '';
         return '\\' + match + (/[a-zA-Z0-9]/.test(next) ? ' ' : '');
       });
+      // Unicode 上标 → 幂
+      for (const [from, to] of Object.entries(SUPERSCRIPT_LATEX)) out = out.split(from).join(to);
       // 符号表里的映射：长的先替换，避免 x2 被 x 抢先
       for (const [from, to] of LATEX_SYMBOLS) out = out.split(from).join(to);
       // lim 后面跟着含“→”的一段时才收进下标，避免把普通参数误当下标
@@ -209,7 +222,7 @@ window.__ModuleLoader__.load({
       if (actions === undefined || actions === null) return;
       let span = null;
       try { span = actions.captureInsertion(); } catch { span = null; }
-      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, chain: [] });
+      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, activeSection: 'vars', focusIndex: 0, chain: [] });
       caretPosition = null;
     };
     const closePanel = () => {
@@ -433,6 +446,11 @@ window.__ModuleLoader__.load({
         background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
       .mss-key:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
       .mss-key-space{color:inherit;opacity:.75;font-size:12px}
+      .mss-key-on{background:var(--dsw-alias-state-business-primary, #4176e6);border-color:transparent;color:#fff}
+      .mss-suprow{display:flex;gap:6px;width:100%;margin-top:6px;padding-top:8px;
+        border-top:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.12))}
+      .mss-cell-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px;
+        background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
       .mss-key-clear{margin-left:auto;opacity:.75}
       .mss-draft{margin:0 20px;border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));padding-top:12px}
       .mss-draftrow{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;
@@ -571,6 +589,14 @@ window.__ModuleLoader__.load({
         putText(state.text.slice(0, start) + snippet + state.text.slice(end), start + snippet.length);
       };
 
+      // 模板：插入一段文本，并把光标放到模板内部（例如分式的分子）。
+      const insertTemplate = (template, offset) => {
+        if (state.direct) { insertDirect(template); return; }
+        const start = caret();
+        const end = caretEnd();
+        putText(state.text.slice(0, start) + template + state.text.slice(end), start + offset);
+      };
+
       const backspace = () => {
         const start = caret();
         const end = caretEnd();
@@ -595,10 +621,46 @@ window.__ModuleLoader__.load({
       }));
       const letterCells = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
 
-      const onKeyDown = (event) => {
+      const onDraftKeyDown = (event) => {
         if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
+          event.stopPropagation();
+          insertDraft();
+        }
+      };
+
+      const activeItems = () => {
+        const section = GROUPS.find((group) => group.id === state.activeSection);
+        return section === undefined ? [] : section.items;
+      };
+
+      const moveFocus = (delta) => {
+        const items = activeItems();
+        if (items.length === 0) return;
+        patchPanel({ focusIndex: Math.min(items.length - 1, Math.max(0, state.focusIndex + delta)) });
+      };
+
+      const onKeyDown = (event) => {
+        if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
+        if (event.key === 'ArrowRight') { event.preventDefault(); moveFocus(1); return; }
+        if (event.key === 'ArrowLeft') { event.preventDefault(); moveFocus(-1); return; }
+        if (event.key === 'ArrowDown') { event.preventDefault(); moveFocus(6); return; }
+        if (event.key === 'ArrowUp') { event.preventDefault(); moveFocus(-6); return; }
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          const index = GROUPS.findIndex((group) => group.id === state.activeSection);
+          const next = (index + (event.shiftKey ? -1 : 1) + GROUPS.length) % GROUPS.length;
+          patchPanel({ activeSection: GROUPS[next].id, focusIndex: 0 });
+          return;
+        }
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          const items = activeItems();
+          if (items.length > 0) {
+            insertSnippet(items[Math.min(state.focusIndex, items.length - 1)][1]);
+            return;
+          }
           if (state.direct) { closePanel(); return; }
           insertDraft();
         }
@@ -630,17 +692,24 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'mss-close', 'aria-label': '关闭', onClick: closePanel }, '×'),
             ),
             h('div', { className: 'mss-body' },
-              sections.map((section) => h('div', { key: section.id, className: 'mss-sect' },
+              sections.map((section) => h('div', {
+                key: section.id,
+                className: 'mss-sect',
+                onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0 }),
+              },
                 h('div', { className: 'mss-sname' }, section.name),
                 h('div', { className: 'mss-cellwrap' },
                   h('div', { className: 'mss-cells' },
-                    section.items.map((item) => h('button', {
+                    section.items.map((item, index) => h('button', {
                       key: item.glyph + item.text,
                       type: 'button',
-                      className: 'mss-cell',
+                      className: 'mss-cell' + (state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : ''),
                       title: '插入 ' + item.text,
                       onMouseDown: keepFocus,
-                      onClick: () => insertSnippet(item.text),
+                      onClick: () => {
+                        patchPanel({ activeSection: section.id, focusIndex: index });
+                        insertSnippet(item.text);
+                      },
                     },
                       h('div', { className: 'mss-glyph' }, item.glyph),
                       h('div', { className: 'mss-code' }, item.text === ' ' ? '空格' : item.text),
@@ -684,11 +753,25 @@ window.__ModuleLoader__.load({
               }, digit)),
               h('button', {
                 type: 'button',
-                className: 'mss-key mss-key-space',
-                title: '空格 + 次数 = 次方：sin3 x 就是 sin³x',
+                className: 'mss-key',
+                title: '普通空格',
                 onMouseDown: keepFocus,
                 onClick: () => insertSnippet(' '),
-              }, '空格（次方）'),
+              }, '空格'),
+              h('button', {
+                type: 'button',
+                className: 'mss-key',
+                title: '分式模板 (分子)/(分母)',
+                onMouseDown: keepFocus,
+                onClick: () => insertTemplate('( )/( )', 2),
+              }, '分式'),
+              h('button', {
+                type: 'button',
+                className: 'mss-key' + (state.sup ? ' mss-key-on' : ''),
+                title: '上标数字（幂次）',
+                onMouseDown: keepFocus,
+                onClick: () => patchPanel({ sup: !state.sup }),
+              }, 'ⁿ'),
               state.direct
                 ? null
                 : h('button', {
@@ -697,6 +780,25 @@ window.__ModuleLoader__.load({
                   onMouseDown: keepFocus,
                   onClick: backspace,
                 }, '⌫ 删除'),
+              state.sup
+                ? h('div', { className: 'mss-suprow' },
+                  SUPERSCRIPT_DIGITS.map((glyph) => h('button', {
+                    key: 'sup-' + glyph,
+                    type: 'button',
+                    className: 'mss-key',
+                    title: '上标 ' + glyph,
+                    onMouseDown: keepFocus,
+                    onClick: () => insertSnippet(glyph),
+                  }, glyph)),
+                  h('button', {
+                    key: 'sup-n',
+                    type: 'button',
+                    className: 'mss-key',
+                    title: '上标 n',
+                    onMouseDown: keepFocus,
+                    onClick: () => insertSnippet('ⁿ'),
+                  }, 'ⁿ'))
+                : null,
             ),
             h('div', { className: 'mss-draft' },
               h('div', { className: 'mss-draftrow' },
@@ -709,7 +811,7 @@ window.__ModuleLoader__.load({
                     className: 'mss-draftinput',
                     placeholder: '点符号，或者直接在这里打字',
                     value: state.text,
-                    onKeyDown,
+                    onKeyDown: onDraftKeyDown,
                     onKeyUp: (event) => { caretPosition = event.currentTarget.selectionStart; },
                     onClick: (event) => { caretPosition = event.currentTarget.selectionStart; },
                     onSelect: (event) => { caretPosition = event.currentTarget.selectionStart; },
@@ -726,7 +828,7 @@ window.__ModuleLoader__.load({
                   : h('span', { className: 'mss-math' }, reading),
                 h('span', { className: 'mss-note' }, state.latex
                   ? '· 插入时用这段 LaTeX'
-                  : '· sin3x → sin(3x)　· sin3 x → sin³x　· e3 → e³'),
+                  : '· sin²x → (sin x)²　· e3 → e³　· x5 → x⁵'),
               ),
             ),
             h('div', { className: 'mss-foot' },

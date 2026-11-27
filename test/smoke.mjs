@@ -107,7 +107,10 @@ const textOf = (node) => {
 };
 
 const byClass = (tree, name) => find(tree, (node) => node.props && node.props.className === name);
-const cell = (tree, glyph) => find(tree, (node) => node.props && node.props.className === 'mss-cell' && node.props.title === '插入 ' + glyph)[0];
+const isCell = (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.split(' ').includes('mss-cell') && !node.props.className.includes('mss-toggle');
+const cellsOf = () => find(dialog, isCell);
+const cell = (tree, glyph) => find(tree, (node) => isCell(node) && node.props.title === '插入 ' + glyph)[0];
 const clickCell = (glyph) => {
   const button = cell(dialog, glyph);
   assert.ok(button, 'cell missing: ' + glyph);
@@ -155,7 +158,7 @@ const versionTag = find(dialog, (node) => node.props && node.props.className ===
 assert.ok(versionTag, 'panel must show its version so a stale module is obvious');
 assert.ok(/^v\d+\.\d+\.\d+$/.test(textOf(versionTag)), 'version tag format, got ' + textOf(versionTag));
 
-const cells = byClass(dialog, 'mss-cell');
+const cells = cellsOf();
 assert.strictEqual(cells.length, 39, 'expected 39 symbols, got ' + cells.length);
 assert.strictEqual(byClass(dialog, 'mss-sect').length, 5, 'expected 5 sections');
 
@@ -188,15 +191,18 @@ assert.strictEqual(calls[0].text, 'sin3x');
 assert.strictEqual(calls[0].span.draftRev, 7);
 assert.strictEqual(render('math-symbols-panel'), null, 'panel closes after insert');
 
-// ---- power form: sin3 x -> sin³x, e3 -> e³, x5 -> x⁵ ---------------------
+// ---- unicode superscript: sin²x, e³, x⁵ --------------------------------
 trigger.props.onClick();
 dialog = render('math-symbols-panel');
 clickCell('sin');
-clickKey('3');
-clickKey('空格（次方）');
+clickKey('ⁿ');
+clickKey('²');
 clickCell('x');
-assert.strictEqual(draftValue(), 'sin3 x');
-assert.strictEqual(preview(), 'sin³(x)', 'sin3 x reads as sin³(x), got ' + preview());
+assert.strictEqual(draftValue(), 'sin²x');
+assert.strictEqual(preview(), '(sin x)²', 'sin²x reads as (sin x)², got ' + preview());
+
+clickKey('分式');
+assert.ok(draftValue().includes('( )/( )'), 'fraction template inserted, got ' + draftValue());
 
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'e3', selectionStart: 2 } });
 dialog = render('math-symbols-panel');
@@ -207,26 +213,39 @@ dialog = render('math-symbols-panel');
 assert.strictEqual(preview(), 'x⁵');
 
 // ---- operators: contour integral and partial derivative -------------------
-const glyphs = byClass(dialog, 'mss-cell').map((node) => node.props.title);
+const glyphs = cellsOf().map((node) => node.props.title);
 assert.ok(glyphs.includes('插入 ∮'), 'contour integral cell missing');
 assert.ok(glyphs.includes('插入 ∂'), 'partial derivative cell missing');
 assert.ok(!find(dialog, (node) => node.props && node.props.className === 'mss-search').length, 'search box should be gone');
 
 // ---- variables group + a–z letter strip -----------------------------------
-const titles = byClass(dialog, 'mss-cell').map((node) => node.props.title);
+const titles = cellsOf().map((node) => node.props.title);
 assert.ok(titles.includes('插入 x'), 'variable x missing');
 assert.ok(titles.includes('插入 θ'), 'variable θ missing');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(byClass(dialog, 'mss-cell').length, 65, 'letters strip adds 26 cells');
-find(dialog, (node) => node.props && node.props.title === '插入 a' && node.props.className === 'mss-cell')[0].props.onClick();
+assert.strictEqual(cellsOf().length, 65, 'letters strip adds 26 cells');
+find(dialog, (node) => node.props && node.props.title === '插入 a' && isCell(node))[0].props.onClick();
 dialog = render('math-symbols-panel');
 assert.ok(draftValue().endsWith('a'), 'letter a inserted');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(byClass(dialog, 'mss-cell').length, 39, 'letters strip collapses again');
+assert.strictEqual(cellsOf().length, 39, 'letters strip collapses again');
+
+// ---- hover a section, arrows move focus, Enter inserts the focused cell ---
+find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();
+dialog = render('math-symbols-panel');
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'ArrowRight', preventDefault() {} });
+dialog = render('math-symbols-panel');
+const focused = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus'))[0];
+assert.ok(focused, 'focused cell missing after ArrowRight');
+assert.strictEqual(focused.props.title, '插入 y', 'ArrowRight moves focus to y, got ' + focused.props.title);
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Enter', preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.ok(draftValue().endsWith('y'), 'Enter inserts the focused variable, got ' + draftValue());
 
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
@@ -298,9 +317,17 @@ dialog = render('math-symbols-panel');
 assert.strictEqual(preview(), '\\lim_{x \\to 0} \\sin x', 'latex conversion, got ' + preview());
 assert.ok(glyphs.includes('插入 ∮'), 'sanity');
 
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'x²', selectionStart: 2 } });
+dialog = render('math-symbols-panel');
+assert.strictEqual(preview(), 'x^{2}', 'superscript latex, got ' + preview());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '(sinx)/(1+sinx)', selectionStart: 16 } });
+dialog = render('math-symbols-panel');
+assert.strictEqual(preview(), '\\frac{\\sin x}{1+\\sin x}', 'fraction latex, got ' + preview());
+
 const beforeTex = calls.length;
 byClass(dialog, 'mss-btn mss-btn-primary')[0].props.onClick();
 assert.strictEqual(calls.length, beforeTex + 1);
-assert.strictEqual(calls[calls.length - 1].text, '\\lim_{x \\to 0} \\sin x');
+assert.strictEqual(calls[calls.length - 1].text, '\\frac{\\sin x}{1+\\sin x}');
 
-console.log('SMOKE TEST OK - trigger, sections, editable draft, sin3x, sin3 x, e3, x5, operators, latex, escape, retry, direct mode');
+console.log('SMOKE TEST OK - trigger, sections, variables, letters, superscript, fraction, latex, keyboard nav, escape, retry, direct mode');
