@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.3.3';
+    const VERSION = '0.3.4';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -761,6 +761,7 @@ window.__ModuleLoader__.load({
                         + (state.mode === 'selected' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : ''),
                       title: '插入 ' + item.text,
                       onMouseDown: keepFocus,
+                      onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' }),
                       onClick: () => {
                         patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' });
                         insertSnippet(item.text);
@@ -808,6 +809,7 @@ window.__ModuleLoader__.load({
                   + (key.id === 'backspace' ? ' mss-key-clear' : '')
                   + (state.mode === 'selected' && state.activeSection === 'keys' && state.focusIndex === index ? ' mss-key-focus' : ''),
                 onMouseDown: keepFocus,
+                onMouseEnter: () => patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'selected' }),
                 onClick: () => {
                   patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'selected' });
                   key.run();

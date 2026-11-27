@@ -277,6 +277,19 @@ assert.strictEqual(draftValue(), 'sin', 'single click inserts');
 assert.ok(find(dialog, (node) => node.props && typeof node.props.className === 'string'
   && node.props.className.includes('mss-cell-focus')).length > 0, 'single click also selects');
 
+// ---- hover follows the cell under the pointer ----------------------------
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
+dialog = render('math-symbols-panel');
+cell(dialog, 'tan').props.onMouseEnter();
+dialog = render('math-symbols-panel');
+const hovered = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.includes('mss-cell-focus'))[0];
+assert.ok(hovered, 'hovering a cell selects it');
+assert.strictEqual(hovered.props.title, '插入 tan', 'hover selects the cell under the pointer, got ' + hovered.props.title);
+cell(dialog, 'tan').props.onClick();
+dialog = render('math-symbols-panel');
+assert.strictEqual(draftValue(), 'tan', 'clicking the hovered cell outputs it');
+
 // ---- keypad is reachable with Tab and Enter runs the focused key ----------
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
