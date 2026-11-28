@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>导航方案对比</title>
+<style>
+  :root{
+    --bg:#0d1015; --panel:#141920; --panel2:#171d25; --line:rgba(255,255,255,.08);
+    --line2:rgba(255,255,255,.14); --ink:#e7ebf2; --ink2:#98a2b3; --ink3:#6b7484;
+    --brand:#4176e6; --brand-soft:rgba(65,118,230,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(120% 100% at 50% 0%,#121722 0%,var(--bg) 60%);color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;padding:26px 24px 30px}
+  .stage{display:flex;gap:22px;align-items:flex-start;justify-content:center;width:1680px;margin:0 auto}
+  .col{width:532px;flex:none}
+  .caption{display:flex;align-items:baseline;gap:10px;margin:0 0 10px 2px}
+  .caption b{font-size:15px}
+  .caption span{font-size:11.5px;color:var(--ink3)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.45);display:flex;flex-direction:column;height:840px}
+  .head{display:flex;align-items:flex-start;gap:8px;padding:16px 18px 10px}
+  .head h1{margin:0;font-size:15.5px;font-weight:600}
+  .head p{margin:3px 0 0;font-size:11px;color:var(--ink3)}
+  .pill{margin-left:auto;font-size:11px;color:var(--ink2);border:1px solid var(--line2);border-radius:999px;
+    padding:4px 10px;white-space:nowrap;background:transparent}
+  .pill.on{background:var(--brand);border-color:transparent;color:#fff}
+  .tabs{display:flex;gap:4px;padding:0 12px 8px;border-bottom:1px solid var(--line);overflow:auto}
+  .tab{font-size:11.5px;color:var(--ink2);border:none;background:transparent;padding:6px 9px;border-radius:7px;white-space:nowrap;cursor:pointer}
+  .tab.on{background:var(--brand-soft);color:#bcd0ff}
+  .body{padding:10px 16px 0;overflow:auto;flex:1;min-height:0}
+  .recent{padding:2px 16px 8px}
+  .recent .lbl{font-size:10.5px;color:var(--ink3);margin-bottom:5px}
+  .rgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+  .rchip{border:1px solid rgba(65,118,230,.35);background:rgba(65,118,230,.08);border-radius:7px;
+    font-size:11px;padding:5px 2px;text-align:center;color:#c9d8ff}
+  .gtitle{position:sticky;top:0;background:var(--panel);padding:9px 0 5px;font-size:11px;color:var(--ink3);
+    display:flex;align-items:center;gap:8px;z-index:2}
+  .gtitle::after{content:"";flex:1;height:1px;background:var(--line)}
+  .sub{font-size:10.5px;color:var(--ink3);margin:6px 0 5px}
+  .grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .cell{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:7px 2px 5px;text-align:center;min-height:40px}
+  .cell .g{font-family:"Cambria Math","Segoe UI",serif;font-size:14px;line-height:1.2}
+  .cell .c{font-size:9px;color:var(--ink3);font-family:Consolas,monospace;margin-top:1px;white-space:nowrap;overflow:hidden}
+  .cell.tpl{border-style:dashed;border-color:rgba(255,255,255,.16)}
+  .cell.tpl .g{font-size:12.5px}
+  .keypad{display:flex;gap:5px;padding:8px 16px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+  .key{border:1px solid var(--line2);border-radius:7px;background:transparent;color:var(--ink);font:inherit;
+    font-size:11.5px;padding:5px 9px;min-width:30px}
+  .key.dim{color:var(--ink3)}
+  .draft{margin:0 16px;border-top:1px solid var(--line);padding:9px 0}
+  .field{border:1px solid var(--brand);border-radius:9px;padding:7px 10px;font-family:"Cambria Math",Consolas,monospace;
+    font-size:14px;color:var(--ink);display:flex;align-items:center;gap:8px}
+  .field .tag{font-size:10px;color:var(--ink3);font-family:"Segoe UI",sans-serif}
+  .caret{width:1.5px;height:16px;background:var(--brand);display:inline-block}
+  .foot{display:flex;align-items:center;gap:8px;padding:10px 16px 14px}
+  .hint{font-size:10.5px;color:var(--ink3)}
+  .ver{font-size:9.5px;color:var(--ink3);font-family:Consolas,monospace;margin-left:6px}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:11.5px;border-radius:8px;padding:6px 11px;border:1px solid var(--line2);background:transparent;color:var(--ink2)}
+  .btn.primary{background:var(--brand);border-color:transparent;color:#fff}
+  .note{font-size:10.5px;color:var(--ink3);line-height:1.6;margin:8px 2px 0}
+  .note b{color:var(--ink2);font-weight:500}
+  .badge{font-size:9.5px;border:1px solid var(--line2);border-radius:5px;padding:1px 5px;color:var(--ink3);margin-left:4px}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- A · tabs -->
+  <div class="col">
+    <div class="caption"><b>A · 页签导航</b><span>Kimi 方案：最近做成页签，数字键盘移除</span></div>
+    <div class="panel">
+      <div class="head">
+        <div><h1>数学符号</h1><p>点符号填空 · 插入到输入框光标处</p></div>
+        <div class="pill">⌨ 草稿</div><div class="pill on">TeX</div>
+      </div>
+      <div class="tabs">
+        <button class="tab">最近</button>
+        <button class="tab">变量/常量</button>
+        <button class="tab">运算/结构</button>
+        <button class="tab">函数</button>
+        <button class="tab on">希腊字母</button>
+        <button class="tab">微积分</button>
+      </div>
+      <div class="body" id="tabA"></div>
+      <div class="keypad">
+        <span class="key dim">←</span><span class="key dim">→</span><span class="key">空格</span>
+        <span class="key">⌫ 删除</span><span class="key dim">清空</span>
+        <span style="flex:1"></span><span class="note" style="margin:0">数字键盘已移除</span>
+      </div>
+      <div class="draft"><div class="field"><span class="tag">草稿</span><span>limx→0 sinx</span><span class="caret"></span></div></div>
+      <div class="foot"><span class="hint">Enter 插入 · Esc 关闭</span><span class="ver">v0.6.0</span><span class="spacer"></span>
+        <span class="btn">取消</span><span class="btn primary">插入到输入框</span></div>
+    </div>
+    <div class="note">最近要<b>点一下页签</b>才看得到；希腊页签内容最多（小写 21 + 大写 11），一屏铺满。</div>
+  </div>
+
+  <!-- B · single scroll -->
+  <div class="col">
+    <div class="caption"><b>B · 单页滚动</b><span>现状思路：不切页，分组标题 + 符号/模板分区</span></div>
+    <div class="panel">
+      <div class="head">
+        <div><h1>数学符号</h1><p>点符号填空 · 插入到输入框光标处</p></div>
+        <div class="pill">⌨ 草稿</div><div class="pill on">TeX</div>
+      </div>
+      <div class="recent"><div class="lbl">最近 · 12</div><div class="rgrid" id="recentB"></div></div>
+      <div class="body" id="scrollB"></div>
+      <div class="keypad">
+        <span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">4</span>
+        <span class="key">5</span><span class="key">6</span><span class="key">7</span><span class="key">8</span>
+        <span class="key">9</span><span class="key">0</span><span class="key">空格</span><span class="key">分式</span>
+        <span class="key">ⁿ</span><span class="key">⌫</span>
+      </div>
+      <div class="draft"><div class="field"><span class="tag">草稿</span><span>limx→0 sinx</span><span class="caret"></span></div></div>
+      <div class="foot"><span class="hint">Enter 插入 · Esc 关闭</span><span class="ver">v0.6.0</span><span class="spacer"></span>
+        <span class="btn">取消</span><span class="btn primary">插入到输入框</span></div>
+    </div>
+    <div class="note">不用切页，但 55 个符号要<b>一直往下滚</b>；分组多，底部键盘和草稿被推得很远。</div>
+  </div>
+
+  <!-- C · hybrid -->
+  <div class="col">
+    <div class="caption"><b>C · 混合（推荐）</b><span>最近常驻两行 + 6 个页签 + 保留数字行</span></div>
+    <div class="panel">
+      <div class="head">
+        <div><h1>数学符号</h1><p>点符号填空 · 插入到输入框光标处</p></div>
+        <div class="pill">⌨ 草稿</div><div class="pill on">TeX</div>
+      </div>
+      <div class="recent"><div class="lbl">最近 · 12</div><div class="rgrid" id="recentC"></div></div>
+      <div class="tabs">
+        <button class="tab">变量/常量</button><button class="tab">运算/结构</button><button class="tab">函数</button>
+        <button class="tab">希腊字母</button><button class="tab on">微积分</button>
+      </div>
+      <div class="body" id="tabC"></div>
+      <div class="keypad">
+        <span class="key">1</span><span class="key">2</span><span class="key">3</span><span class="key">4</span>
+        <span class="key">5</span><span class="key">6</span><span class="key">7</span><span class="key">8</span>
+        <span class="key">9</span><span class="key">0</span><span class="key">空格</span><span class="key">⌫</span>
+      </div>
+      <div class="draft"><div class="field"><span class="tag">草稿</span><span>limx→0 sinx</span><span class="caret"></span></div></div>
+      <div class="foot"><span class="hint">Enter 插入 · Esc 关闭</span><span class="ver">v0.6.0</span><span class="spacer"></span>
+        <span class="btn">取消</span><span class="btn primary">插入到输入框</span></div>
+    </div>
+    <div class="note">最近不用找；数字仍在（0–9 一行）；页签只切分类，<b>模板和符号在页签内上下分区</b>。</div>
+  </div>
+
+</div>
+
+<script>
+  const VARS = ['x','y','z','a','b','n','t','θ','π','e','∞'];
+  const OPS  = ['+','−','×','÷','=','(',')','[',']','±','≠','≤','≥'];
+  const FN   = ['sin','cos','tan','cot','sec','csc','arcsin','arccos','arctan','ln','log'];
+  const GL   = ['α','β','γ','δ','ε','ζ','η','θ','ι','κ','λ','μ','ν','ξ','ρ','σ','τ','υ','φ','χ','ψ','ω'];
+  const GU   = ['Γ','Δ','Θ','Λ','Ξ','Π','Σ','Φ','Ψ','Ω'];
+  const CALC = ['∫','∮','∂','d','∇','→'];
+  const TPL  = [['x²','x2'],['x³','x3'],['xⁿ','x^n'],['√','√[]()'],['ⁿ√','√[n]()'],['分式','()/( )']];
+  const CALC_TPL = [['∫_a^b','∫_()^()'],['lim→','lim()→()'],['Σ_','∑_()^()'],['∏_','∏_()^()']];
+
+  const cell = (g, c, tpl) => `<div class="cell${tpl ? ' tpl' : ''}"><div class="g">${g}</div><div class="c">${c || g}</div></div>`;
+  const grid = (items, tpl) => `<div class="grid">${items.map((it) => Array.isArray(it) ? cell(it[0], it[1], true) : cell(it, it, tpl)).join('')}</div>`;
+  const title = (t) => `<div class="gtitle">${t}</div>`;
+
+  document.getElementById('tabA').innerHTML =
+    title('小写') + grid(GL) + title('大写') + grid(GU);
+
+  document.getElementById('scrollB').innerHTML =
+    title('变量与常量') + grid(VARS) +
+    title('运算与结构') + `<div class="sub">符号</div>` + grid(OPS) + `<div class="sub">模板</div>` + grid(TPL, true) +
+    title('函数') + grid(FN) +
+    title('希腊字母') + grid(GL) + grid(GU) +
+    title('微积分与极限') + `<div class="sub">符号</div>` + grid(CALC) + `<div class="sub">模板</div>` + grid(CALC_TPL, true);
+
+  document.getElementById('tabC').innerHTML =
+    `<div class="sub">符号</div>` + grid(CALC) +
+    `<div class="sub">模板</div>` + grid(CALC_TPL, true);
+
+  const recent = ['sin','lim()→()','∫_()^()','x²','π','∑','√[]()','cos','ln','Δ','→','e'];
+  const recentGrid = (id) => {
+    document.getElementById(id).innerHTML = recent.map((r) => `<div class="rchip">${r}</div>`).join('');
+  };
+  recentGrid('recentB');
+  recentGrid('recentC');
+</script>
+</body>
+</html>

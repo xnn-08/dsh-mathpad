@@ -4,16 +4,20 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.5.1';
+    const VERSION = '0.6.0';
 
     // ---------------------------------------------------------------------
-    // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
-    // 分组按数学角色划分（变量 / 函数 / 幂与根 / 微积分 / 运算），不按“长相”。
+    // 符号表：面板渲染、页签、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
+    // 5 个页签按数学角色划分：变量/常量、运算/结构、函数、希腊字母、微积分。
+    // 平铺符号：[glyph, text, latex]
+    // 模板项：  [glyph, text, latex, offset, meta?, 'tpl']
+    //   offset = 插入后光标落点；meta = 打开填空页（lim / int / sum / prod）。
+    // 同一个符号全局只出现一次（「最近」条除外）。
     // ---------------------------------------------------------------------
     const GROUPS = [
       {
         id: 'vars',
-        name: '变量与常量',
+        name: '变量/常量',
         items: [
           ['x', 'x', 'x'],
           ['y', 'y', 'y'],
@@ -22,10 +26,38 @@ window.__ModuleLoader__.load({
           ['b', 'b', 'b'],
           ['n', 'n', 'n'],
           ['t', 't', 't'],
-          ['θ', 'θ', '\\theta'],
           ['π', 'π', '\\pi'],
           ['e', 'e', 'e'],
           ['∞', '∞', '\\infty'],
+        ],
+        templates: [],
+      },
+      {
+        id: 'ops',
+        name: '运算/结构',
+        items: [
+          ['+', '+', '+'],
+          ['−', '-', '-'],
+          ['×', '*', '\\times'],
+          // ÷ 以前插入 ASCII '/'，和新增的 '/' 符号撞车；现在各插各的，TeX 仍是 \div / '/'
+          ['÷', '÷', '\\div'],
+          ['=', '=', '='],
+          ['(', '(', '('],
+          [')', ')', ')'],
+          ['[', '[', '['],
+          [']', ']', ']'],
+          ['/', '/', '/'],
+          ['±', '±', '\\pm'],
+          ['≠', '≠', '\\neq'],
+          ['≤', '≤', '\\leq'],
+          ['≥', '≥', '\\geq'],
+        ],
+        templates: [
+          ['x²', 'x²', 'x^{2}', 2, undefined, 'tpl'],
+          ['x³', 'x³', 'x^{3}', 2, undefined, 'tpl'],
+          ['√', '√', '\\sqrt', 1, undefined, 'tpl'],
+          ['ⁿ√', '√[]()', '\\sqrt[n]{}', 2, undefined, 'tpl'],
+          ['分式', '( )/( )', '\\frac{}{}', 2, undefined, 'tpl'],
         ],
       },
       {
@@ -42,69 +74,96 @@ window.__ModuleLoader__.load({
           ['arccos', 'arccos', '\\arccos'],
           ['arctan', 'arctan', '\\arctan'],
           ['ln', 'ln', '\\ln'],
+          ['log', 'log', '\\log'],
         ],
+        templates: [],
       },
       {
-        id: 'pow',
-        name: '幂与根',
+        id: 'greek',
+        name: '希腊字母',
         items: [
-          ['x²', 'x²', 'x^{2}'],
-          ['x³', 'x³', 'x^{3}'],
-          ['√', '√', '\\sqrt'],
-          ['√ⁿ', '√[]()', '\\sqrt[n]{}', 2],
+          ['α', 'α', '\\alpha'],
+          ['β', 'β', '\\beta'],
+          ['γ', 'γ', '\\gamma'],
+          ['δ', 'δ', '\\delta'],
+          ['ε', 'ε', '\\epsilon'],
+          ['ζ', 'ζ', '\\zeta'],
+          ['η', 'η', '\\eta'],
+          ['θ', 'θ', '\\theta'],
+          ['ι', 'ι', '\\iota'],
+          ['κ', 'κ', '\\kappa'],
+          ['λ', 'λ', '\\lambda'],
+          ['μ', 'μ', '\\mu'],
+          ['ν', 'ν', '\\nu'],
+          ['ξ', 'ξ', '\\xi'],
+          ['ρ', 'ρ', '\\rho'],
+          ['σ', 'σ', '\\sigma'],
+          ['τ', 'τ', '\\tau'],
+          ['υ', 'υ', '\\upsilon'],
+          ['φ', 'φ', '\\phi'],
+          ['ψ', 'ψ', '\\psi'],
+          ['ω', 'ω', '\\omega'],
+          ['Γ', 'Γ', '\\Gamma'],
+          ['Δ', 'Δ', '\\Delta'],
+          ['Θ', 'Θ', '\\Theta'],
+          ['Λ', 'Λ', '\\Lambda'],
+          ['Ξ', 'Ξ', '\\Xi'],
+          ['Π', 'Π', '\\Pi'],
+          ['Σ', 'Σ', '\\Sigma'],
+          ['Φ', 'Φ', '\\Phi'],
+          ['Ψ', 'Ψ', '\\Psi'],
+          ['Ω', 'Ω', '\\Omega'],
         ],
+        templates: [],
       },
       {
         id: 'calc',
-        name: '微积分运算符',
+        name: '微积分',
         items: [
           ['∫', '∫', '\\int'],
           ['∮', '∮', '\\oint'],
           ['∂', '∂', '\\partial'],
           ['d', 'd', 'd'],
-          ['→', '→', '\\to'],
-          ['∑', '∑', '\\sum'],
-          ['∏', '∏', '\\prod'],
-          ['∐', '∐', '\\coprod'],
           ['∇', '∇', '\\nabla'],
-          ['Δ', 'Δ', '\\Delta'],
-          ['α', 'α', '\\alpha'],
-          ['β', 'β', '\\beta'],
-          ['γ', 'γ', '\\gamma'],
-          ['δ', 'δ', '\\delta'],
-          ['λ', 'λ', '\\lambda'],
-          ['μ', 'μ', '\\mu'],
-          ['σ', 'σ', '\\sigma'],
-          ['φ', 'φ', '\\phi'],
-          ['ω', 'ω', '\\omega'],
-          ['lim→', 'lim()→()', '\\lim_{} \\to ', 4, 'lim'],
-          ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3, 'int'],
+          ['→', '→', '\\to'],
         ],
-      },
-      {
-        id: 'ops',
-        name: '运算与括号',
-        items: [
-          ['+', '+', '+'],
-          ['−', '-', '-'],
-          ['×', '*', '\\times'],
-          ['÷', '/', '\\div'],
-          ['=', '=', '='],
-          ['(', '(', '('],
-          [')', ')', ')'],
-          ['[', '[', '['],
-          [']', ']', ']'],
+        templates: [
+          ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3, 'int', 'tpl'],
+          ['lim→', 'lim()→()', '\\lim_{} \\to ', 4, 'lim', 'tpl'],
+          ['Σₙ', '∑_()^()', '\\sum_{}^{}', 3, 'sum', 'tpl'],
+          ['∏ₙ', '∏_()^()', '\\prod_{}^{}', 3, 'prod', 'tpl'],
         ],
       },
     ];
 
-    // 面板/导航的静态结构：只依赖 GROUPS、LETTERS，不需要每帧重建。
-    const NAV_IDS = GROUPS.map((group) => group.id).concat('keys');
-    const SECTIONS = GROUPS.map((group) => ({
-      id: group.id,
-      name: group.name,
-      items: group.items.map((item) => ({ glyph: item[0], text: item[1], offset: item[3], meta: item[4] })),
-    }));
+    // 页签顺序 / 查找：面板和方向键导航都按这张表的顺序走。
+    const TAB_IDS = GROUPS.map((group) => group.id);
+    const groupOf = (id) => GROUPS.find((group) => group.id === id) ?? GROUPS[0];
+    // 填空页的变量格子固定用「变量/常量」页签，和用户当前在哪个页签无关。
+    const SLOT_VARS = groupOf('vars').items;
+
+    // 填空页（两个空 + 变量/数字键盘）的文案和提交格式。
+    const SLOT_SPECS = {
+      lim: {
+        title: 'lim 模板', symbol: 'lim', labels: ['极限点', '趋向'], join: '→', placeholders: ['x', '0'],
+        build: (from, to) => 'lim(' + from + ')→(' + to + ')',
+      },
+      int: {
+        title: '积分上下限', symbol: '∫', labels: ['下限', '上限'], join: '^', placeholders: ['0', '1'],
+        build: (from, to) => '∫_(' + from + ')^(' + to + ')',
+      },
+      sum: {
+        title: '求和上下限', symbol: '∑', labels: ['下限', '上限'], join: '^', placeholders: ['a', 'b'],
+        build: (from, to) => '∑_(' + from + ')^(' + to + ')',
+      },
+      prod: {
+        title: '连乘上下限', symbol: '∏', labels: ['下限', '上限'], join: '^', placeholders: ['a', 'b'],
+        build: (from, to) => '∏_(' + from + ')^(' + to + ')',
+      },
+    };
+
+    // 底部「数字」弹窗：3 列 × 4 行，1-9、0、.、/。
+    const NUM_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '/'];
 
     // 字母条：常用变量之外的 a–z，按需展开，不占常驻空间。
     const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('').map((letter) => [letter, letter, letter]);
@@ -155,11 +214,12 @@ window.__ModuleLoader__.load({
           index += filledLim[0].length;
           continue;
         }
-        const filledInt = /^∫_\([^()]*\)\^\([^()]*\)/.exec(rest);
-        if (filledInt !== null) {
-          tokens.push({ value: '∫', start: index });
-          tokens.push({ value: filledInt[0].slice(1), start: index + 1 });
-          index += filledInt[0].length;
+        // 填好的 ∫/∑/∏ 模板：符号本身 + 上下限算一个整体（退格一次删掉上下限）。
+        const filledBig = /^(?:∫|∑|∏)_\([^()]*\)\^\([^()]*\)/.exec(rest);
+        if (filledBig !== null) {
+          tokens.push({ value: filledBig[0][0], start: index });
+          tokens.push({ value: filledBig[0].slice(1), start: index + 1 });
+          index += filledBig[0].length;
           continue;
         }
         let matched = null;
@@ -189,14 +249,18 @@ window.__ModuleLoader__.load({
     const FN_LATEX_RE = new RegExp('(?<!\\\\)(' + TOKEN_NAMES.join('|') + ')', 'g');
 
     const LATEX_SYMBOLS = [];
+    // 符号和模板一起驱动：加了模板不用再单独维护一张 LaTeX 表。
     for (const group of GROUPS) {
-      if (group.id === 'fn') continue;
-      for (const item of group.items) {
+      for (const item of [...group.items, ...group.templates]) {
         // 函数名（含 lim）由正则单独处理，不能再进符号替换表，否则 \lim 会被二次转义成 \\lim
         if (TOKEN_NAMES.includes(item[1])) continue;
+        // '/' 在 TeX 里本来就是字符本身（分式由 (a)/(b) → \frac 处理），不产生映射。
         if (item[2] !== item[1] && item[2] !== '') LATEX_SYMBOLS.push([item[1], item[2]]);
       }
     }
+    // 0.5.x 面板里的常驻 ∑ ∏ ∐ 现在不再是符号：∑ ∏ 由模板产生，∐ 不再展示。
+    // 草稿里仍可能留下它们（例如删掉上下限后只剩 ∑），旧映射保留，TeX 输出不变。
+    for (const legacy of [['∑', '\\sum'], ['∏', '\\prod'], ['∐', '\\coprod']]) LATEX_SYMBOLS.push(legacy);
     LATEX_SYMBOLS.sort((a, b) => b[0].length - a[0].length);
 
     // Unicode 上标：幂次直接插字符，不再用“空格 = 次方”。
@@ -241,8 +305,9 @@ window.__ModuleLoader__.load({
       latex: false,
       letters: false,
       sup: false,
+      num: false,
+      tab: 'vars',
       mode: 'idle',
-      activeSection: 'vars',
       focusIndex: 0,
       pointerInDraft: false,
       flash: '',
@@ -315,6 +380,10 @@ window.__ModuleLoader__.load({
         (match, from, to) => '\\lim_{' + from.trim() + ' \\to ' + to.trim() + '}');
       out = out.replace(/∫_\(([^()]*)\)\^\(([^()]*)\)/g,
         (match, low, high) => '\\int_{' + low + '}^{' + high + '}');
+      out = out.replace(/∑_\(([^()]*)\)\^\(([^()]*)\)/g,
+        (match, low, high) => '\\sum_{' + low + '}^{' + high + '}');
+      out = out.replace(/∏_\(([^()]*)\)\^\(([^()]*)\)/g,
+        (match, low, high) => '\\prod_{' + low + '}^{' + high + '}');
       out = out.replace(/√\[([^\]]*)\]\(([^()]*)\)/g,
         (match, index, body) => '\\sqrt[' + index + ']{' + body + '}');
       // 分式模板 (分子)/(分母) → \frac{分子}{分母}
@@ -340,7 +409,7 @@ window.__ModuleLoader__.load({
       if (actions === undefined || actions === null) return;
       let span = null;
       try { span = actions.captureInsertion(); } catch { span = null; }
-      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, mode: 'idle', activeSection: 'vars', focusIndex: 0, pointerInDraft: false, flash: '', slot: null, slotStart: 0, slotEnd: 0, chain: [] });
+      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, num: false, tab: 'vars', mode: 'idle', focusIndex: 0, pointerInDraft: false, flash: '', slot: null, slotStart: 0, slotEnd: 0, chain: [] });
       caretPosition = null;
     };
     const closePanel = () => {
@@ -547,34 +616,56 @@ window.__ModuleLoader__.load({
         font:inherit;font-size:13px;outline:none;box-sizing:border-box}
       .mss-search::placeholder{opacity:.45}
       .mss-search:focus{border-color:var(--mss-primary)}
-      .mss-body{padding:12px 20px 0;overflow:auto;flex:1;min-height:100px}
+      .mss-tabs{display:flex;gap:2px;padding:2px 20px 0;overflow-x:auto;
+        border-bottom:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08))}
+      .mss-tab{flex:none;border:none;border-bottom:2px solid transparent;border-radius:8px 8px 0 0;background:transparent;
+        color:inherit;font:inherit;font-size:12.5px;padding:8px 11px 7px;cursor:pointer;opacity:.6;white-space:nowrap}
+      .mss-tab:hover{opacity:.95;background:var(--mss-hover)}
+      .mss-tab-on{opacity:1;color:var(--mss-primary);border-bottom-color:var(--mss-primary);font-weight:600}
+      .mss-recent{display:flex;align-items:flex-start;gap:10px;padding:10px 20px 2px}
+      .mss-recent-cells .mss-cell{padding:4px 3px 3px}
+      .mss-recent-cells .mss-glyph{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .mss-body{padding:10px 20px 0;overflow:auto;flex:1;min-height:100px}
       .mss-sect{display:flex;align-items:flex-start;gap:10px;padding:6px 0}
       .mss-sect + .mss-sect{border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08))}
       .mss-sname{width:84px;flex:none;font-size:11.5px;opacity:.55;padding-top:9px;line-height:1.4}
       .mss-cells{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:7px;flex:1;min-width:0}
       .mss-cellwrap{flex:1;min-width:0}
+      /* 模板区用虚线框和符号区区分：先符号、后模板，模板区为空时不渲染。 */
+      .mss-tplgrid{border:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.2));border-radius:10px;
+        padding:8px;background:transparent}
+      .mss-cell-tpl{background:var(--dsw-alias-bg-module-platform, rgba(128,128,128,.03))}
       .mss-letters{grid-template-columns:repeat(13, minmax(0, 1fr));gap:5px;margin-top:7px}
       .mss-letters .mss-cell{padding:5px 2px 4px}
       .mss-letters .mss-glyph{font-size:13px}
       .mss-toggle .mss-glyph{font-family:inherit;font-size:12px;opacity:.8}
       .mss-toggle .mss-code{opacity:.45}
+      .mss-toggle.mss-cell-on{border-color:var(--mss-primary);color:var(--mss-primary)}
       .mss-cell{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.1));border-radius:9px;background:transparent;
         color:inherit;padding:7px 4px 6px;text-align:center;cursor:pointer;font:inherit}
       .mss-cell:hover{background:var(--mss-hover-soft)}
       .mss-glyph{font-family:"Cambria Math","Segoe UI",serif;font-size:15px;line-height:1.25}
       .mss-code{font-size:10px;opacity:.55;margin-top:1px;font-family:Consolas,"SF Mono",monospace}
-      .mss-keypad{display:flex;gap:6px;padding:2px 20px 10px;flex-wrap:wrap}
+      .mss-keypad{display:flex;align-items:center;gap:6px;padding:2px 20px 10px;flex-wrap:wrap}
       .mss-key{min-width:32px;height:30px;padding:0 9px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
         background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
       .mss-key:hover{background:var(--mss-hover)}
       .mss-key-space{color:inherit;opacity:.75;font-size:12px}
       .mss-key-on{background:var(--mss-primary);border-color:transparent;color:#fff}
-      .mss-key-focus{outline:2px solid var(--mss-primary);outline-offset:-2px}
-      .mss-suprow{display:flex;gap:6px;width:100%;margin-top:6px;padding-top:8px;
+      .mss-key-off{opacity:.35;cursor:default}
+      .mss-key-off:hover{background:transparent}
+      .mss-numwrap{position:relative;display:inline-flex;margin-left:auto}
+      .mss-numpop{position:absolute;right:0;bottom:calc(100% + 8px);z-index:8;display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));gap:5px;padding:8px;border-radius:12px;
+        border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));background:var(--dsw-alias-bg-base, #fff);
+        box-shadow:0 12px 32px rgba(15,17,21,.18)}
+      .mss-numkey{width:40px;height:34px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
+        background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer}
+      .mss-numkey:hover{background:var(--mss-hover)}
+      .mss-suprow{display:flex;gap:6px;width:100%;margin-top:7px;padding-top:8px;
         border-top:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.12))}
       .mss-cell-focus{outline:2px solid var(--mss-primary);outline-offset:-2px;
         background:var(--mss-hover-strong)}
-      .mss-key-clear{margin-left:auto;opacity:.75}
       .mss-flash{color:var(--mss-primary);font-weight:500}
       .mss-modewrap{position:relative;display:inline-flex}
       .mss-toast{position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);
@@ -595,6 +686,8 @@ window.__ModuleLoader__.load({
         .mss-cells{grid-template-columns:repeat(4, minmax(0, 1fr))}
         .mss-letters{grid-template-columns:repeat(7, minmax(0, 1fr))}
       }
+      /* 最近条固定 6 列 × 2 行（12 个），窄屏也不跟着降列，避免从两行变三行。 */
+      .mss-recent-cells{grid-template-columns:repeat(6, minmax(0, 1fr))}
       .mss-slotpage{position:absolute;left:10px;right:10px;top:58px;bottom:10px;z-index:6;
         display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:14px;
         background:var(--dsw-alias-bg-base, #fff);box-shadow:0 14px 44px rgba(20,30,60,.2)}
@@ -707,6 +800,7 @@ window.__ModuleLoader__.load({
       const state = stateHook();
       const draftRef = React.useRef(null);
       const caretTarget = React.useRef(null);
+      const numRef = React.useRef(null);
       const slotRefs = [React.useRef(null), React.useRef(null)];
 
       React.useEffect(() => {
@@ -732,6 +826,22 @@ window.__ModuleLoader__.load({
           try { input.setSelectionRange(position, position); } catch { /* 非文本框时忽略 */ }
         }
       });
+
+      // 数字弹窗：点弹窗外面收起；点「数字」按钮自己不算外面。
+      React.useEffect(() => {
+        if (!state.open || !state.num) return () => {};
+        if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return () => {};
+        const onPointerDown = (event) => {
+          const wrap = numRef.current;
+          const target = event === null || event === undefined ? null : event.target;
+          const inside = wrap !== null && wrap !== undefined && typeof wrap.contains === 'function'
+            && target !== null && target !== undefined && wrap.contains(target);
+          if (inside) return;
+          patchPanel({ num: false });
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        return () => { document.removeEventListener('mousedown', onPointerDown); };
+      }, [state.open, state.num]);
 
       if (!state.open) return null;
 
@@ -804,6 +914,7 @@ window.__ModuleLoader__.load({
           slotStart: caret(),
           slotEnd: caretEnd(),
           mode: 'idle',
+          num: false,
           flash: '',
         });
       };
@@ -840,7 +951,8 @@ window.__ModuleLoader__.load({
           : null);
         const from = read(slotRefs[0]) ?? slot.values[0] ?? '';
         const to = read(slotRefs[1]) ?? slot.values[1] ?? '';
-        const filled = slot.kind === 'lim' ? 'lim(' + from + ')→(' + to + ')' : '∫_(' + from + ')^(' + to + ')';
+        const spec = SLOT_SPECS[slot.kind] ?? SLOT_SPECS.int;
+        const filled = spec.build(from, to);
         replaceRange(state.slotStart, state.slotEnd, filled);
         rememberRecent(filled);
         patchPanel({ slot: null, slotStart: 0, slotEnd: 0 });
@@ -860,6 +972,31 @@ window.__ModuleLoader__.load({
         replaceRange(start, end, '', start);
       };
 
+      // 底部编辑条：← / → 按字符移动草稿光标（直插模式没有本地草稿，按钮禁用）。
+      const moveCaretBy = (delta) => {
+        if (state.direct) return;
+        const next = Math.max(0, Math.min(state.text.length, caret() + delta));
+        caretPosition = next;
+        caretTarget.current = next;
+        patchPanel({});
+      };
+
+      // 底部编辑条：清空。草稿模式清文本，直插模式清「已写入」记录。
+      const clearDraft = () => {
+        if (state.direct) {
+          patchPanel({ chain: [] });
+          flash('已清空');
+          return;
+        }
+        putText('', 0);
+        flash('已清空');
+      };
+
+      // 切页签：重置焦点（页签内的选中环收起），数字弹窗也一并收起。
+      const switchTab = (id) => {
+        patchPanel({ tab: id, focusIndex: 0, mode: 'idle', num: false });
+      };
+
       const scrim = (event) => {
         if (event.target === event.currentTarget) closePanel();
       };
@@ -867,8 +1004,45 @@ window.__ModuleLoader__.load({
       const sourceText = state.direct ? state.chain.join('') : state.text;
       const reading = state.latex ? toLatex(sourceText) : explain(sourceText);
 
+      const activeGroup = groupOf(state.tab);
+      const symbols = activeGroup.items;
+      const templates = activeGroup.templates;
+      const navLength = symbols.length + templates.length;
+      const COLS = (typeof window !== 'undefined' && window.innerWidth <= 720) ? 4 : 6;
+
+      // 页签内的导航 = 符号 + 模板 一条列表；页签之间用 Tab 切。
+      const setFocus = (index, mode) => {
+        patchPanel({
+          tab: activeGroup.id,
+          focusIndex: Math.min(navLength - 1, Math.max(0, index)),
+          mode,
+        });
+      };
+      const moveFocus = (dx, dy) => {
+        if (navLength === 0) return;
+        setFocus(state.focusIndex + dx + dy, 'selected');
+      };
+
+      // 输出：普通项插文本，带 offset 的当模板插，带 meta 的打开填空页。
+      const runItem = (item) => {
+        if (item === undefined) return;
+        if (item[4] !== undefined) openSlot(item[4]);
+        else if (item[3] === undefined) insertSnippet(item[1]);
+        else insertTemplate(item[1], item[3]);
+      };
+      const triggerFocused = () => {
+        const index = Math.min(navLength - 1, Math.max(0, state.focusIndex));
+        if (index < symbols.length) { runItem(symbols[index]); return; }
+        runItem(templates[index - symbols.length]);
+      };
+
       const onDraftKeyDown = (event) => {
-        if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          if (state.num) { patchPanel({ num: false }); return; }
+          closePanel();
+          return;
+        }
         if (event.key === 'Backspace') {
           const input = event.currentTarget;
           const start = typeof input.selectionStart === 'number' ? input.selectionStart : state.text.length;
@@ -887,75 +1061,27 @@ window.__ModuleLoader__.load({
           event.stopPropagation();
           // 方向键选中了格子时，Enter 输出那个格子，而不是被“空草稿”吞掉。
           if (state.mode === 'selected') {
-            triggerItem(sectionIndex(), state.focusIndex);
+            triggerFocused();
             return;
           }
           insertDraft();
         }
       };
 
-      // 键盘区的按键也纳入方向键导航；Enter 触发当前项。
+      // 底部编辑条：← → 空格 ⌫ 删除 清空（数字按钮和弹窗单独渲染，便于定位）。
       const KEYS = [
-        ...['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => ({
-          id: 'digit-' + digit, label: digit, title: digit, run: () => insertSnippet(digit),
-        })),
+        { id: 'left', label: '←', title: '光标左移一位（草稿模式）', off: state.direct, run: () => moveCaretBy(-1) },
+        { id: 'right', label: '→', title: '光标右移一位（草稿模式）', off: state.direct, run: () => moveCaretBy(1) },
         { id: 'space', label: '空格', title: '普通空格', run: () => insertSnippet(' ') },
-        { id: 'fraction', label: '分式', title: '分式模板 (分子)/(分母)', run: () => insertTemplate('( )/( )', 2) },
-        { id: 'sup', label: 'ⁿ', title: '上标数字（幂次）', run: () => patchPanel({ sup: !state.sup }) },
-        ...(state.direct ? [] : [{ id: 'backspace', label: '⌫ 删除', title: '删除光标前一个字符', run: backspace }]),
+        ...(state.direct ? [] : [{ id: 'backspace', label: '⌫ 删除', title: '删除光标前的一个符号（整个符号删除）', run: backspace }]),
+        { id: 'clear', label: '清空', title: state.direct ? '清空已写入记录' : '清空草稿', run: clearDraft },
       ];
-
-      const COLS = (typeof window !== 'undefined' && window.innerWidth <= 720) ? 4 : 6;
-      const sectionIndex = () => Math.max(0, NAV_IDS.indexOf(state.activeSection));
-      const itemsOf = (index) => (index < GROUPS.length ? GROUPS[index].items : KEYS);
-
-      // 单一焦点：悬停只给“淡预览”，按键才升为“强选中”，离开交互区回到静默。
-      const setFocus = (si, itemIndex, mode) => {
-        const items = itemsOf(si);
-        patchPanel({
-          activeSection: NAV_IDS[si],
-          focusIndex: Math.min(items.length - 1, Math.max(0, itemIndex)),
-          mode,
-        });
-      };
-
-      const moveFocus = (dx, dy) => {
-        const si = sectionIndex();
-        const items = itemsOf(si);
-        const i = state.focusIndex;
-        if (dx !== 0) {
-          const next = i + dx;
-          if (next >= 0 && next < items.length) { setFocus(si, next, 'selected'); return; }
-          const target = si + dx;
-          if (target < 0 || target >= NAV_IDS.length) return;
-          setFocus(target, dx > 0 ? 0 : itemsOf(target).length - 1, 'selected');
-          return;
-        }
-        const next = i + dy;
-        if (next >= 0 && next < items.length) { setFocus(si, next, 'selected'); return; }
-        const target = si + (dy > 0 ? 1 : -1);
-        if (target < 0 || target >= NAV_IDS.length) return;
-        setFocus(target, Math.min(i, itemsOf(target).length - 1), 'selected');
-      };
-
-      // 输出：符号插入文本，键盘按键执行自己的动作。
-      const triggerItem = (si, index) => {
-        if (si < GROUPS.length) {
-          const items = GROUPS[si].items;
-          const item = items[Math.min(index, items.length - 1)];
-          if (item[4] !== undefined) openSlot(item[4]);
-          else if (item[3] === undefined) insertSnippet(item[1]);
-          else insertTemplate(item[1], item[3]);
-          return;
-        }
-        const key = KEYS[Math.min(index, KEYS.length - 1)];
-        if (key !== undefined) key.run();
-      };
 
       const onKeyDown = (event) => {
         if (event.key === 'Escape') {
           event.stopPropagation();
           if (state.slot !== null) { patchPanel({ slot: null }); return; }
+          if (state.num) { patchPanel({ num: false }); return; }
           closePanel();
           return;
         }
@@ -972,9 +1098,8 @@ window.__ModuleLoader__.load({
             setLatexMode(!state.latex);
             return;
           }
-          const si = sectionIndex();
-          const next = (si + 1 + NAV_IDS.length) % NAV_IDS.length;
-          setFocus(next, 0, 'selected');
+          const index = TAB_IDS.indexOf(state.tab);
+          switchTab(TAB_IDS[(index + 1 + TAB_IDS.length) % TAB_IDS.length]);
           return;
         }
         if (event.key === 'Enter' && !event.shiftKey) {
@@ -984,10 +1109,146 @@ window.__ModuleLoader__.load({
             if (!state.direct) insertDraft();
             return;
           }
-          triggerItem(sectionIndex(), state.focusIndex);
+          triggerFocused();
         }
         if (event.key === 'Backspace' && event.metaKey) { event.preventDefault(); putText('', 0); }
       };
+
+      // 单元格：符号和模板共用一个渲染器，模板用虚线框区分。
+      const renderCell = (item, index, isTemplate) => {
+        const focused = state.mode === 'selected' && state.focusIndex === index;
+        return h('button', {
+          key: (isTemplate ? 'tpl-' : 'sym-') + index + '-' + item[1],
+          type: 'button',
+          className: 'mss-cell'
+            + (isTemplate ? ' mss-cell-tpl' : '')
+            + (focused ? ' mss-cell-focus' : ''),
+          title: '插入 ' + item[1],
+          onMouseDown: keepFocus,
+          onMouseEnter: () => patchPanel({ tab: activeGroup.id, focusIndex: index, mode: 'selected' }),
+          onClick: () => {
+            patchPanel({ tab: activeGroup.id, focusIndex: index, mode: 'selected' });
+            runItem(item);
+          },
+        },
+          h('div', { className: 'mss-glyph' }, item[0]),
+          h('div', { className: 'mss-code' }, item[1] === ' ' ? '空格' : item[1]),
+        );
+      };
+
+      // 「最近」常驻条：固定在页签上方，最多 12 个（6 列 × 2 行）。
+      const recentBar = recentItems.length === 0 ? null : h('div', { className: 'mss-recent' },
+        h('div', { className: 'mss-sname' }, '最近'),
+        h('div', { className: 'mss-cellwrap' },
+          h('div', { className: 'mss-cells mss-recent-cells' },
+            recentItems.map((item) => h('button', {
+              key: 'recent-' + item.text,
+              type: 'button',
+              className: 'mss-cell mss-recent-cell',
+              title: '插入 ' + item.text,
+              onMouseDown: keepFocus,
+              onClick: () => insertSnippet(item.text),
+            }, h('div', { className: 'mss-glyph' }, item.label)))),
+        ),
+      );
+
+      const tabBar = h('div', { className: 'mss-tabs', role: 'tablist' },
+        GROUPS.map((entry) => h('button', {
+          key: 'tab-' + entry.id,
+          type: 'button',
+          role: 'tab',
+          'aria-selected': state.tab === entry.id ? 'true' : 'false',
+          className: 'mss-tab' + (state.tab === entry.id ? ' mss-tab-on' : ''),
+          title: '切到' + entry.name,
+          onMouseDown: keepFocus,
+          onClick: () => switchTab(entry.id),
+        }, entry.name)),
+      );
+
+      // 页签内先「符号」网格（6 列），再「模板」网格（虚线框）。
+      const symbolBlock = h('div', {
+        className: 'mss-sect',
+        onMouseEnter: () => patchPanel({ tab: activeGroup.id, focusIndex: 0, mode: 'selected' }),
+      },
+        h('div', { className: 'mss-sname' }, '符号'),
+        h('div', { className: 'mss-cellwrap' },
+          h('div', { className: 'mss-cells' },
+            symbols.map((item, index) => renderCell(item, index, false)),
+            activeGroup.id === 'vars'
+              ? h('button', {
+                key: 'letters-toggle',
+                type: 'button',
+                className: 'mss-cell mss-toggle',
+                title: state.letters ? '收起字母条' : '展开 a–z',
+                onMouseDown: keepFocus,
+                onClick: () => patchPanel({ letters: !state.letters }),
+              },
+                h('div', { className: 'mss-glyph' }, 'a–z'),
+                h('div', { className: 'mss-code' }, state.letters ? '收起' : '展开'),
+              )
+              : null,
+          ),
+          activeGroup.id === 'vars' && state.letters
+            ? h('div', { className: 'mss-cells mss-letters' },
+              LETTER_CELLS.map((item) => h('button', {
+                key: 'letter-' + item.text,
+                type: 'button',
+                className: 'mss-cell mss-letter-cell',
+                title: '插入 ' + item.text,
+                onMouseDown: keepFocus,
+                onClick: () => insertSnippet(item.text),
+              }, h('div', { className: 'mss-glyph' }, item.glyph))),
+            )
+            : null,
+        ),
+      );
+
+      // 模板区没有内容就整块不渲染（连标题一起）。ⁿ 上标开关挂在「运算/结构」的模板区。
+      const templateBlock = templates.length === 0 ? null : h('div', {
+        className: 'mss-sect',
+        onMouseEnter: () => patchPanel({ tab: activeGroup.id, focusIndex: symbols.length, mode: 'selected' }),
+      },
+        h('div', { className: 'mss-sname' }, '模板'),
+        h('div', { className: 'mss-cellwrap' },
+          h('div', { className: 'mss-cells mss-tplgrid' },
+            templates.map((item, index) => renderCell(item, symbols.length + index, true)),
+            activeGroup.id === 'ops'
+              ? h('button', {
+                key: 'sup-toggle',
+                type: 'button',
+                className: 'mss-cell mss-toggle' + (state.sup ? ' mss-cell-on' : ''),
+                title: state.sup ? '收起上标数字' : '展开上标数字（幂次）',
+                onMouseDown: keepFocus,
+                onClick: () => patchPanel({ sup: !state.sup }),
+              },
+                h('div', { className: 'mss-glyph' }, 'ⁿ'),
+                h('div', { className: 'mss-code' }, state.sup ? '收起' : '上标'),
+              )
+              : null,
+          ),
+          activeGroup.id === 'ops' && state.sup
+            ? h('div', { className: 'mss-suprow' },
+              SUPERSCRIPT_DIGITS.map((glyph) => h('button', {
+                key: 'sup-' + glyph,
+                type: 'button',
+                className: 'mss-key',
+                title: '上标 ' + glyph,
+                onMouseDown: keepFocus,
+                onClick: () => insertSnippet(glyph),
+              }, glyph)),
+              h('button', {
+                key: 'sup-n',
+                type: 'button',
+                className: 'mss-key',
+                title: '上标 n',
+                onMouseDown: keepFocus,
+                onClick: () => insertSnippet('ⁿ'),
+              }, 'ⁿ'))
+            : null,
+        ),
+      );
+
+      const slotSpec = state.slot === null ? null : (SLOT_SPECS[state.slot.kind] ?? SLOT_SPECS.int);
 
       return h(React.Fragment, null,
         h('div', { key: 'mss-scrim', className: 'mss-scrim', onMouseDown: scrim, onKeyDown },
@@ -1031,21 +1292,19 @@ window.__ModuleLoader__.load({
                   className: 'mss-slotback',
                   onClick: () => patchPanel({ slot: null }),
                 }, '← 返回'),
-                h('div', { className: 'mss-slottitle' }, state.slot.kind === 'lim' ? 'lim 模板' : '积分上下限'),
+                h('div', { className: 'mss-slottitle' }, slotSpec.title),
               ),
               h('div', { className: 'mss-slotform' },
-                h('span', { className: 'mss-slotlabel' }, state.slot.kind === 'lim' ? 'lim' : '∫'),
+                h('span', { className: 'mss-slotlabel' }, slotSpec.symbol),
                 [0, 1].flatMap((index) => {
-                  const isLim = state.slot.kind === 'lim';
                   const field = h('label', { className: 'mss-slotfield', key: 'slot-field-' + index },
-                    h('span', { className: 'mss-slotcap' },
-                      isLim ? (index === 0 ? '极限点' : '趋向') : (index === 0 ? '下限' : '上限')),
+                    h('span', { className: 'mss-slotcap' }, slotSpec.labels[index]),
                     h('input', {
                       key: 'slot-' + index + '-' + state.slot.kind,
                       className: 'mss-slotinput' + (state.slot.focus === index ? ' on' : ''),
                       ref: slotRefs[index],
                       defaultValue: state.slot.values[index] ?? '',
-                      placeholder: isLim ? (index === 0 ? 'x' : '0') : (index === 0 ? '0' : '1'),
+                      placeholder: slotSpec.placeholders[index],
                       onFocus: () => patchPanel({ slot: { ...state.slot, focus: index } }),
                       onChange: (event) => {
                         const values = state.slot.values.slice();
@@ -1056,12 +1315,12 @@ window.__ModuleLoader__.load({
                     }),
                   );
                   return index === 0
-                    ? [field, h('span', { className: 'mss-slotops', key: 'slot-ops' }, isLim ? '→' : '^')]
+                    ? [field, h('span', { className: 'mss-slotops', key: 'slot-ops' }, slotSpec.join)]
                     : [field];
                 }),
               ),
               h('div', { className: 'mss-slotgrid' },
-                GROUPS.find((group) => group.id === 'vars').items.map(([glyph, value]) => h('button', {
+                SLOT_VARS.map(([glyph, value]) => h('button', {
                   key: 'slot-var-' + value,
                   type: 'button',
                   className: 'mss-slotkey',
@@ -1078,114 +1337,46 @@ window.__ModuleLoader__.load({
               ),
               h('div', { className: 'mss-slothint' }, 'Enter 完成并返回 · 两个空都可以直接点'),
             ),
+            recentBar,
+            tabBar,
             h('div', {
               className: 'mss-body',
-              onMouseLeave: () => patchPanel({ mode: 'idle', activeSection: 'vars', focusIndex: 0 }),
+              onMouseLeave: () => patchPanel({ mode: 'idle' }),
             },
-              recentItems.length === 0 ? null : h('div', { className: 'mss-sect mss-recent' },
-                h('div', { className: 'mss-sname' }, '最近'),
-                h('div', { className: 'mss-cellwrap' },
-                  h('div', { className: 'mss-cells mss-recent-cells' },
-                    recentItems.map((item) => h('button', {
-                      key: 'recent-' + item.text,
-                      type: 'button',
-                      className: 'mss-cell mss-recent-cell',
-                      title: '插入 ' + item.text,
-                      onMouseDown: keepFocus,
-                      onClick: () => insertSnippet(item.text),
-                    }, h('div', { className: 'mss-glyph' }, item.label)))),
-                ),
-              ),
-              SECTIONS.map((section) => h('div', {
-                key: section.id,
-                className: 'mss-sect',
-                onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0, mode: 'selected' }),
-              },
-                h('div', { className: 'mss-sname' }, section.name),
-                h('div', { className: 'mss-cellwrap' },
-                  h('div', { className: 'mss-cells' },
-                    section.items.map((item, index) => h('button', {
-                      key: item.glyph + item.text,
-                      type: 'button',
-                      className: 'mss-cell'
-                        + (state.mode === 'selected' && state.activeSection === section.id && state.focusIndex === index ? ' mss-cell-focus' : ''),
-                      title: '插入 ' + item.text,
-                      onMouseDown: keepFocus,
-                      onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' }),
-                      onClick: () => {
-                        patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' });
-                        if (item.meta !== undefined) openSlot(item.meta);
-                        else if (item.offset === undefined) insertSnippet(item.text);
-                        else insertTemplate(item.text, item.offset);
-                      },
-                    },
-                      h('div', { className: 'mss-glyph' }, item.glyph),
-                      h('div', { className: 'mss-code' }, item.text === ' ' ? '空格' : item.text),
-                    )),
-                    section.id === 'vars'
-                      ? h('button', {
-                        key: 'letters-toggle',
-                        type: 'button',
-                        className: 'mss-cell mss-toggle',
-                        title: state.letters ? '收起字母条' : '展开 a–z',
-                        onMouseDown: keepFocus,
-                        onClick: () => patchPanel({ letters: !state.letters }),
-                      },
-                        h('div', { className: 'mss-glyph' }, 'a–z'),
-                        h('div', { className: 'mss-code' }, state.letters ? '收起' : '展开'),
-                      )
-                      : null,
-                  ),
-                  section.id === 'vars' && state.letters
-                    ? h('div', { className: 'mss-cells mss-letters' },
-                      LETTER_CELLS.map((item) => h('button', {
-                        key: 'letter-' + item.text,
-                        type: 'button',
-                        className: 'mss-cell mss-letter-cell',
-                        title: '插入 ' + item.text,
-                        onMouseDown: keepFocus,
-                        onClick: () => insertSnippet(item.text),
-                      }, h('div', { className: 'mss-glyph' }, item.glyph))),
-                    )
-                    : null,
-                ),
-              )),
+              symbolBlock,
+              templateBlock,
             ),
             h('div', { className: 'mss-keypad' },
-              KEYS.map((key, index) => h('button', {
+              KEYS.map((key) => h('button', {
                 key: key.id,
                 type: 'button',
                 title: key.title,
-                className: 'mss-key'
-                  + (key.id === 'sup' && state.sup ? ' mss-key-on' : '')
-                  + (key.id === 'backspace' ? ' mss-key-clear' : '')
-                  + (state.mode === 'selected' && state.activeSection === 'keys' && state.focusIndex === index ? ' mss-key-focus' : ''),
+                disabled: key.off === true,
+                className: 'mss-key' + (key.off === true ? ' mss-key-off' : ''),
                 onMouseDown: keepFocus,
-                onMouseEnter: () => patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'selected' }),
-                onClick: () => {
-                  patchPanel({ activeSection: 'keys', focusIndex: index, mode: 'selected' });
-                  key.run();
-                },
+                onClick: () => { if (key.off !== true) key.run(); },
               }, key.label)),
-              state.sup
-                ? h('div', { className: 'mss-suprow' },
-                  SUPERSCRIPT_DIGITS.map((glyph) => h('button', {
-                    key: 'sup-' + glyph,
-                    type: 'button',
-                    className: 'mss-key',
-                    title: '上标 ' + glyph,
-                    onMouseDown: keepFocus,
-                    onClick: () => insertSnippet(glyph),
-                  }, glyph)),
-                  h('button', {
-                    key: 'sup-n',
-                    type: 'button',
-                    className: 'mss-key',
-                    title: '上标 n',
-                    onMouseDown: keepFocus,
-                    onClick: () => insertSnippet('ⁿ'),
-                  }, 'ⁿ'))
-                : null,
+              h('div', { className: 'mss-numwrap', ref: numRef },
+                h('button', {
+                  key: 'num-toggle',
+                  type: 'button',
+                  title: '数字键盘：0-9 . /',
+                  className: 'mss-key' + (state.num ? ' mss-key-on' : ''),
+                  onMouseDown: keepFocus,
+                  onClick: () => patchPanel({ num: !state.num }),
+                }, '数字'),
+                state.num
+                  ? h('div', { key: 'num-pop', className: 'mss-numpop', role: 'group', 'aria-label': '数字键盘' },
+                    NUM_KEYS.map((char) => h('button', {
+                      key: 'num-' + char,
+                      type: 'button',
+                      className: 'mss-numkey',
+                      title: '插入 ' + char,
+                      onMouseDown: keepFocus,
+                      onClick: () => insertSnippet(char),
+                    }, char)))
+                  : null,
+              ),
             ),
             h('div', {
               className: 'mss-draft',
