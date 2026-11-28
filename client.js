@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.5.0';
+    const VERSION = '0.5.1';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -112,7 +112,7 @@ window.__ModuleLoader__.load({
 
     // 最近使用：只记完整插入文本，展示时再截断。
     const RECENT_KEY = 'dsh.mathpad.recent';
-    const RECENT_LIMIT = 8;
+    const RECENT_LIMIT = 12;
     let recentItems = [];
     try {
       const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(RECENT_KEY) : null;
