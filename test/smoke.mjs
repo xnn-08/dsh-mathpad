@@ -37,6 +37,7 @@ const React = {
 
 // ---- minimal browser surface ----------------------------------------------
 let registered = null;
+const domListeners = [];
 const window = { __ModuleLoader__: { load(def) { registered = def; } } };
 
 const installedStyles = [];
@@ -50,6 +51,11 @@ const context = vm.createContext({
     activeElement: null,
     head: { appendChild(node) { installedStyles.push(node); } },
     createElement(tag) { return { tagName: tag, dataset: {}, textContent: '', remove() {} }; },
+    addEventListener(type, fn) { domListeners.push({ type, fn }); },
+    removeEventListener(type, fn) {
+      const index = domListeners.findIndex((entry) => entry.type === type && entry.fn === fn);
+      if (index >= 0) domListeners.splice(index, 1);
+    },
   },
   localStorage: {
     getItem: (key) => (storage.has(key) ? storage.get(key) : null),
@@ -108,7 +114,8 @@ const textOf = (node) => {
 
 const byClass = (tree, name) => find(tree, (node) => node.props && node.props.className === name);
 const isCell = (node) => node.props && typeof node.props.className === 'string'
-  && node.props.className.split(' ').includes('mss-cell') && !node.props.className.includes('mss-toggle');
+  && node.props.className.split(' ').includes('mss-cell') && !node.props.className.includes('mss-toggle')
+  && !node.props.className.includes('mss-recent-cell');
 const cellsOf = () => find(dialog, isCell);
 const cell = (tree, glyph) => find(tree, (node) => isCell(node) && node.props.title === '插入 ' + glyph)[0];
 // 单击 = 选中 + 输出
@@ -161,7 +168,7 @@ assert.ok(versionTag, 'panel must show its version so a stale module is obvious'
 assert.ok(/^v\d+\.\d+\.\d+$/.test(textOf(versionTag)), 'version tag format, got ' + textOf(versionTag));
 
 const cells = cellsOf();
-assert.strictEqual(cells.length, 41, 'expected 41 symbols, got ' + cells.length);
+assert.strictEqual(cells.length, 55, 'expected 55 symbols, got ' + cells.length);
 assert.strictEqual(byClass(dialog, 'mss-sect').length, 5, 'expected 5 sections');
 
 // ---- sin3x: chips + digits + editable draft ------------------------------
@@ -276,7 +283,7 @@ assert.ok(titles.includes('插入 θ'), 'variable θ missing');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(cellsOf().length, 67, 'letters strip adds 26 cells');
+assert.strictEqual(cellsOf().length, 81, 'letters strip adds 26 cells');
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
 find(dialog, (node) => node.props && node.props.title === '插入 a' && typeof node.props.className === 'string' && node.props.className.includes('mss-letter-cell'))[0].props.onClick();
@@ -285,7 +292,7 @@ assert.strictEqual(draftValue(), 'a', 'letter a inserted');
 
 find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-toggle'))[0].props.onClick();
 dialog = render('math-symbols-panel');
-assert.strictEqual(cellsOf().length, 41, 'letters strip collapses again');
+assert.strictEqual(cellsOf().length, 55, 'letters strip collapses again');
 
 // ---- hover selects (single visual state), arrows move, Enter outputs -----
 find(dialog, (node) => node.props && node.props.className === 'mss-sect')[0].props.onMouseEnter();
@@ -452,6 +459,24 @@ dialog = render('math-symbols-panel');
 // ---- Escape closes -------------------------------------------------------
 byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
 assert.strictEqual(render('math-symbols-panel'), null);
+
+// ---- Ctrl+Shift+M opens the panel; recent row replays the last symbol ------
+const keydown = domListeners.find((entry) => entry.type === 'keydown');
+assert.ok(keydown, 'global keydown listener registered');
+keydown.fn({ ctrlKey: true, shiftKey: true, key: 'M', preventDefault() {} });
+dialog = render('math-symbols-panel');
+assert.ok(dialog !== null, 'Ctrl+Shift+M opens the panel');
+
+const recentChips = find(dialog, (node) => node.props && typeof node.props.className === 'string'
+  && node.props.className.split(' ').includes('mss-recent-cell'));
+assert.ok(recentChips.length > 0, 'recent row appears after an insert');
+const beforeRecent = draftValue();
+recentChips[0].props.onClick();
+dialog = render('math-symbols-panel');
+assert.ok(draftValue().length > beforeRecent.length, 'clicking a recent chip inserts it');
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
+dialog = render('math-symbols-panel');
+assert.strictEqual(dialog, null, 'panel closes again');
 
 // ---- inert trigger without inputActions ----------------------------------
 const inert = render('math-symbols', {});

@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.10';
+    const VERSION = '0.5.0';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -56,15 +56,29 @@ window.__ModuleLoader__.load({
       },
       {
         id: 'calc',
-        name: '微积分',
+        name: '微积分运算符',
         items: [
           ['∫', '∫', '\\int'],
           ['∮', '∮', '\\oint'],
           ['∂', '∂', '\\partial'],
           ['d', 'd', 'd'],
+          ['→', '→', '\\to'],
+          ['∑', '∑', '\\sum'],
+          ['∏', '∏', '\\prod'],
+          ['∐', '∐', '\\coprod'],
+          ['∇', '∇', '\\nabla'],
+          ['Δ', 'Δ', '\\Delta'],
+          ['α', 'α', '\\alpha'],
+          ['β', 'β', '\\beta'],
+          ['γ', 'γ', '\\gamma'],
+          ['δ', 'δ', '\\delta'],
+          ['λ', 'λ', '\\lambda'],
+          ['μ', 'μ', '\\mu'],
+          ['σ', 'σ', '\\sigma'],
+          ['φ', 'φ', '\\phi'],
+          ['ω', 'ω', '\\omega'],
           ['lim→', 'lim()→()', '\\lim_{} \\to ', 4, 'lim'],
           ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3, 'int'],
-          ['→', '→', '\\to'],
         ],
       },
       {
@@ -95,6 +109,29 @@ window.__ModuleLoader__.load({
     // 字母条：常用变量之外的 a–z，按需展开，不占常驻空间。
     const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('').map((letter) => [letter, letter, letter]);
     const LETTER_CELLS = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
+
+    // 最近使用：只记完整插入文本，展示时再截断。
+    const RECENT_KEY = 'dsh.mathpad.recent';
+    const RECENT_LIMIT = 8;
+    let recentItems = [];
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(RECENT_KEY) : null;
+      if (raw !== null) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) recentItems = parsed.filter((item) => item && typeof item.text === 'string').slice(0, RECENT_LIMIT);
+      }
+    } catch { recentItems = []; }
+    const saveRecent = () => {
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(RECENT_KEY, JSON.stringify(recentItems));
+      } catch { /* 记住失败不影响使用 */ }
+    };
+    const rememberRecent = (value) => {
+      if (typeof value !== 'string' || value.trim() === '' || /^[0-9 ]$/.test(value)) return;
+      const label = value.length > 8 ? value.slice(0, 8) + '…' : value;
+      recentItems = [{ text: value, label }, ...recentItems.filter((item) => item.text !== value)].slice(0, RECENT_LIMIT);
+      saveRecent();
+    };
 
     // 函数名用于 LaTeX 的“补空格 + 收下标”规则；长的排前面，避免 arcsin 被 sin 抢先匹配。
     const FUNCS = GROUPS.find((group) => group.id === 'fn').items
@@ -623,8 +660,11 @@ window.__ModuleLoader__.load({
     // ---------------------------------------------------------------------
     // 触发按钮（输入框右下角、识图左侧的一枚图标）
     // ---------------------------------------------------------------------
+    let latestActions = null;
+
     function MathSymbolsTrigger(props) {
       const actions = props === null || props === undefined ? undefined : props.inputActions;
+      if (actions !== undefined && actions !== null) latestActions = actions;
       const disabled = actions === undefined;
       const glyphRef = React.useRef(null);
       React.useEffect(() => { centerGlyphInk(glyphRef.current); }, []);
@@ -740,19 +780,21 @@ window.__ModuleLoader__.load({
       };
 
       const insertSnippet = (snippet) => {
-        if (state.direct) { insertDirect(snippet); flash('✅ 已插入 ' + snippet); return; }
+        if (state.direct) { insertDirect(snippet); rememberRecent(snippet); flash('✅ 已插入 ' + snippet); return; }
         const start = caret();
         const end = caretEnd();
         replaceRange(start, end, snippet);
+        rememberRecent(snippet);
         flash('✅ 已插入 ' + snippet);
       };
 
       // 模板：插入一段文本，并把光标放到模板内部（例如分式的分子）。
       const insertTemplate = (template, offset) => {
-        if (state.direct) { insertDirect(template); flash('✅ 已插入模板'); return; }
+        if (state.direct) { insertDirect(template); rememberRecent(template); flash('✅ 已插入模板'); return; }
         const start = caret();
         const end = caretEnd();
         replaceRange(start, end, template, start + offset);
+        rememberRecent(template);
         flash('✅ 已插入模板');
       };
 
@@ -800,6 +842,7 @@ window.__ModuleLoader__.load({
         const to = read(slotRefs[1]) ?? slot.values[1] ?? '';
         const filled = slot.kind === 'lim' ? 'lim(' + from + ')→(' + to + ')' : '∫_(' + from + ')^(' + to + ')';
         replaceRange(state.slotStart, state.slotEnd, filled);
+        rememberRecent(filled);
         patchPanel({ slot: null, slotStart: 0, slotEnd: 0 });
         flash('✅ 已插入模板');
       };
@@ -1039,6 +1082,20 @@ window.__ModuleLoader__.load({
               className: 'mss-body',
               onMouseLeave: () => patchPanel({ mode: 'idle', activeSection: 'vars', focusIndex: 0 }),
             },
+              recentItems.length === 0 ? null : h('div', { className: 'mss-sect mss-recent' },
+                h('div', { className: 'mss-sname' }, '最近'),
+                h('div', { className: 'mss-cellwrap' },
+                  h('div', { className: 'mss-cells mss-recent-cells' },
+                    recentItems.map((item) => h('button', {
+                      key: 'recent-' + item.text,
+                      type: 'button',
+                      className: 'mss-cell mss-recent-cell',
+                      title: '插入 ' + item.text,
+                      onMouseDown: keepFocus,
+                      onClick: () => insertSnippet(item.text),
+                    }, h('div', { className: 'mss-glyph' }, item.label)))),
+                ),
+              ),
               SECTIONS.map((section) => h('div', {
                 key: section.id,
                 className: 'mss-sect',
@@ -1238,6 +1295,26 @@ window.__ModuleLoader__.load({
           name: 'shell.overlay',
           id: 'math-symbols-panel',
         }, MathSymbolsDialog));
+
+        // Ctrl+Shift+M：手不离键盘打开面板。
+        if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+          const onShortcut = (event) => {
+            if (event === null || event === undefined) return;
+            if (!event.ctrlKey || !event.shiftKey) return;
+            if (typeof event.key !== 'string' || event.key.toLowerCase() !== 'm') return;
+            if (panel.open || latestActions === null) return;
+            event.preventDefault();
+            openPanel(latestActions);
+          };
+          if (typeof ctx.effect === 'function') {
+            ctx.effect(() => {
+              document.addEventListener('keydown', onShortcut);
+              return () => document.removeEventListener('keydown', onShortcut);
+            }, 'math-symbols: shortcut');
+          } else {
+            document.addEventListener('keydown', onShortcut);
+          }
+        }
       },
     };
   },
