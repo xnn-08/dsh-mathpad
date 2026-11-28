@@ -230,7 +230,8 @@ clickCell('lim()→()');
 dialog = render('math-symbols-panel');
 const slotPage = find(dialog, (node) => node.props && node.props.className === 'mss-slotpage')[0];
 assert.ok(slotPage, 'slot page open');
-slotPage.props.onMouseDown({ target: slotPage, currentTarget: slotPage });
+const slotGrid = find(dialog, (node) => node.props && node.props.className === 'mss-slotgrid')[0];
+slotPage.props.onMouseDown({ target: slotGrid, currentTarget: slotPage });
 dialog = render('math-symbols-panel');
 assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
   'blank click closes the fill-in page');
