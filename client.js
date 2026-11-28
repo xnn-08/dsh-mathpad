@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.4';
+    const VERSION = '0.4.5';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -652,8 +652,11 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         if (state.slot === null) return;
-        if (slotInputRef.current !== null && typeof slotInputRef.current.focus === 'function') {
-          slotInputRef.current.focus();
+        const input = slotInputRef.current;
+        if (input === null || typeof input.focus !== 'function') return;
+        input.focus();
+        if (typeof input.setSelectionRange === 'function' && typeof input.value === 'string') {
+          try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* 忽略 */ }
         }
       }, [state.slot === null ? -1 : state.slot.index, state.slot === null ? '' : state.slot.kind]);
 
@@ -751,17 +754,31 @@ window.__ModuleLoader__.load({
       const slotAppend = (char) => {
         const slot = state.slot;
         if (slot === null) return;
+        const input = slotInputRef.current;
+        const current = input !== null && typeof input.value === 'string' ? input.value : (slot.values[slot.index] ?? '');
+        const next = current + char;
+        if (input !== null && typeof input.value === 'string') {
+          input.value = next;
+          input.focus();
+          if (typeof input.setSelectionRange === 'function') {
+            try { input.setSelectionRange(next.length, next.length); } catch { /* 忽略 */ }
+          }
+        }
         const values = slot.values.slice();
-        values[slot.index] = (values[slot.index] ?? '') + char;
+        values[slot.index] = next;
         patchPanel({ slot: { ...slot, values } });
       };
 
       const slotAdvance = () => {
         const slot = state.slot;
         if (slot === null) return;
-        if (slot.index === 0) { patchPanel({ slot: { ...slot, index: 1 } }); return; }
-        const from = slot.values[0] ?? '';
-        const to = slot.values[1] ?? '';
+        const input = slotInputRef.current;
+        const live = input !== null && typeof input.value === 'string' ? input.value : null;
+        const values = slot.values.slice();
+        if (live !== null) values[slot.index] = live;
+        if (slot.index === 0) { patchPanel({ slot: { ...slot, values, index: 1 } }); return; }
+        const from = values[0] ?? '';
+        const to = values[1] ?? '';
         const filled = slot.kind === 'lim' ? 'lim(' + from + ')→(' + to + ')' : '∫_(' + from + ')^(' + to + ')';
         replaceRange(state.slotStart, state.slotEnd, filled);
         patchPanel({ slot: null, slotStart: 0, slotEnd: 0 });
@@ -962,16 +979,19 @@ window.__ModuleLoader__.load({
                   state.slot.values[1] === '' ? '空' : state.slot.values[1]),
               ),
               h('input', {
+                key: 'slot-input-' + state.slot.kind + '-' + state.slot.index,
                 className: 'mss-slotinput',
                 ref: slotInputRef,
-                value: state.slot.values[state.slot.index] ?? '',
+                defaultValue: state.slot.values[state.slot.index] ?? '',
                 placeholder: state.slot.kind === 'lim'
                   ? (state.slot.index === 0 ? '极限点，例如 x' : '趋向的值，例如 0')
                   : (state.slot.index === 0 ? '下限，例如 0' : '上限，例如 1'),
                 onChange: (event) => {
-                  const values = state.slot.values.slice();
-                  values[state.slot.index] = event.target.value;
-                  patchPanel({ slot: { ...state.slot, values } });
+                  const slot = state.slot;
+                  if (slot === null) return;
+                  const values = slot.values.slice();
+                  values[slot.index] = event.target.value;
+                  patchPanel({ slot: { ...slot, values } });
                 },
                 onKeyDown: (event) => {
                   if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }

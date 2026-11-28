@@ -220,7 +220,7 @@ slotInput.props.onChange({ target: { value: 'x' } });
 dialog = render('math-symbols-panel');
 byClass(dialog, 'mss-slotinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
 dialog = render('math-symbols-panel');
-assert.strictEqual(byClass(dialog, 'mss-slotinput')[0].props.value, '', 'second slot starts empty');
+assert.strictEqual(byClass(dialog, 'mss-slotinput')[0].props.defaultValue, '', 'second slot starts empty');
 byClass(dialog, 'mss-slotinput')[0].props.onChange({ target: { value: '0' } });
 dialog = render('math-symbols-panel');
 byClass(dialog, 'mss-slotinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
@@ -228,6 +228,19 @@ dialog = render('math-symbols-panel');
 assert.strictEqual(draftValue(), 'lim(x)→(0)', 'filled lim template inserted, got ' + draftValue());
 assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
   'slot page closes after the last Enter');
+// clicking a slot key must keep the page alive
+clickCell('lim()→()');
+dialog = render('math-symbols-panel');
+const slotKey = find(dialog, (node) => node.props && node.props.className === 'mss-slotkey')[0];
+assert.ok(slotKey, 'slot key present');
+slotKey.props.onClick();
+dialog = render('math-symbols-panel');
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length > 0,
+  'slot page survives a keypad click');
+byClass(dialog, 'mss-scrim')[0].props.onKeyDown({ key: 'Escape', stopPropagation() {} });
+dialog = render('math-symbols-panel');
+assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
+  'Escape leaves the slot page');
 
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'e3', selectionStart: 2 } });
 dialog = render('math-symbols-panel');
