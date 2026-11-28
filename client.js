@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.6.0';
+    const VERSION = '0.6.1';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、页签、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -46,7 +46,6 @@ window.__ModuleLoader__.load({
           [')', ')', ')'],
           ['[', '[', '['],
           [']', ']', ']'],
-          ['/', '/', '/'],
           ['±', '±', '\\pm'],
           ['≠', '≠', '\\neq'],
           ['≤', '≤', '\\leq'],
@@ -656,11 +655,12 @@ window.__ModuleLoader__.load({
       .mss-key-off:hover{background:transparent}
       .mss-numwrap{position:relative;display:inline-flex;margin-left:auto}
       .mss-numpop{position:absolute;right:0;bottom:calc(100% + 8px);z-index:8;display:grid;
-        grid-template-columns:repeat(3, minmax(0, 1fr));gap:5px;padding:8px;border-radius:12px;
-        border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));background:var(--dsw-alias-bg-base, #fff);
-        box-shadow:0 12px 32px rgba(15,17,21,.18)}
-      .mss-numkey{width:40px;height:34px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
-        background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer}
+        grid-template-columns:repeat(3, minmax(0, 1fr));gap:6px;padding:10px;border-radius:12px;width:180px;
+        background:var(--dsw-alias-bg-base, #1b2028);background-image:linear-gradient(rgba(20,25,32,.02), rgba(20,25,32,.02));
+        border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));
+        box-shadow:0 16px 40px rgba(15,17,21,.28)}
+      .mss-numkey{width:100%;height:40px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
+        background:transparent;color:inherit;font:inherit;font-size:15px;cursor:pointer}
       .mss-numkey:hover{background:var(--mss-hover)}
       .mss-suprow{display:flex;gap:6px;width:100%;margin-top:7px;padding-top:8px;
         border-top:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.12))}
@@ -1073,6 +1073,7 @@ window.__ModuleLoader__.load({
         { id: 'left', label: '←', title: '光标左移一位（草稿模式）', off: state.direct, run: () => moveCaretBy(-1) },
         { id: 'right', label: '→', title: '光标右移一位（草稿模式）', off: state.direct, run: () => moveCaretBy(1) },
         { id: 'space', label: '空格', title: '普通空格', run: () => insertSnippet(' ') },
+        { id: 'slash', label: '/', title: '斜杠 /', run: () => insertSnippet('/') },
         ...(state.direct ? [] : [{ id: 'backspace', label: '⌫ 删除', title: '删除光标前的一个符号（整个符号删除）', run: backspace }]),
         { id: 'clear', label: '清空', title: state.direct ? '清空已写入记录' : '清空草稿', run: clearDraft },
       ];

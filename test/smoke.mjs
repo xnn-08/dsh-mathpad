@@ -74,7 +74,7 @@ vm.runInContext(code, context);
 
 assert.ok(registered !== null, 'module loader was not called');
 assert.strictEqual(registered.id, 'dsh-mathpad');
-assert.strictEqual(pkg.version, '0.6.0', 'package.json version must match the client');
+assert.strictEqual(pkg.version, '0.6.1', 'package.json version must match the client');
 
 const plugin = registered.factory(context.require);
 assert.ok(plugin && typeof plugin.apply === 'function', 'plugin.apply missing');
@@ -245,7 +245,7 @@ assert.ok(dialog !== null, 'panel must open after the trigger click');
 
 const versionTag = find(dialog, (node) => node.props && node.props.className === 'mss-version')[0];
 assert.ok(versionTag, 'panel must show its version so a stale module is obvious');
-assert.strictEqual(textOf(versionTag), 'v0.6.0', 'version tag must be v0.6.0');
+assert.strictEqual(textOf(versionTag), 'v0.6.1', 'version tag must be v0.6.1');
 
 // ---- 5 tabs --------------------------------------------------------------
 const tabLabels = nodeListOf(dialog, 'mss-tab').map(textOf);
@@ -288,12 +288,12 @@ assert.strictEqual(nodeListOf(dialog, 'mss-letter-cell').length, 0, 'letters str
 clickTab('运算/结构');
 assert.strictEqual(activeTab(), '运算/结构');
 assert.deepStrictEqual(sectionLabels(), ['符号', '模板'], 'symbol area then template area');
-assert.strictEqual(symbolCells().length, 14, 'ops tab has 14 symbols');
+assert.strictEqual(symbolCells().length, 13, 'ops tab has 13 symbols');
 assert.strictEqual(templateCells().length, 5, 'ops tab has 5 templates');
 const opsTitles = symbolCells().map((node) => node.props.title);
 assert.deepStrictEqual(opsTitles,
   ['插入 +', '插入 -', '插入 *', '插入 ÷', '插入 =', '插入 (', '插入 )', '插入 [', '插入 ]',
-    '插入 /', '插入 ±', '插入 ≠', '插入 ≤', '插入 ≥']);
+    '插入 ±', '插入 ≠', '插入 ≤', '插入 ≥']);
 const tplTitles = templateCells().map((node) => node.props.title);
 assert.deepStrictEqual(tplTitles, ['插入 x²', '插入 x³', '插入 √', '插入 √[]()', '插入 ( )/( )']);
 assert.ok(templateCells().every((node) => hasClass(node, 'mss-cell-tpl')), 'template cells carry the template marker');
@@ -303,8 +303,8 @@ setDraft('', 0);
 clickCell('+');
 clickCell('*');
 clickCell('÷');
-clickCell('/');
-assert.strictEqual(draftValue(), '+*÷/', 'ops symbols insert glyph-specific text');
+clickBottom('/');
+assert.strictEqual(draftValue(), '+*÷/', 'slash comes from the bottom bar');
 clickCell('±');
 clickCell('≠');
 clickCell('≤');
@@ -318,12 +318,12 @@ assert.strictEqual(draftValue(), 'x²');
 setDraft('', 0);
 clickCell('√[]()');
 assert.strictEqual(draftValue(), '√[]()');
-clickCell('/');
+clickBottom('/');
 assert.strictEqual(draftValue(), '√[/]()', 'template offset puts the caret inside the brackets');
 setDraft('', 0);
 clickCell('( )/( )');
 assert.strictEqual(draftValue(), '( )/( )');
-clickCell('/');
+clickBottom('/');
 assert.strictEqual(draftValue(), '( /)/( )', 'fraction template puts the caret in the numerator');
 
 // ---- ⁿ superscript toggle lives in the ops template area ----------------
@@ -386,7 +386,7 @@ for (const name of ['变量/常量', '运算/结构', '函数', '希腊字母', 
   clickTab(name);
   allCellTitles.push(...cellsOf().map((node) => node.props.title));
 }
-assert.strictEqual(allCellTitles.length, 10 + 19 + 11 + 31 + 10, 'total cells across the 5 tabs');
+assert.strictEqual(allCellTitles.length, 10 + 18 + 11 + 31 + 10, 'total cells across the 5 tabs');
 assert.strictEqual(new Set(allCellTitles).size, allCellTitles.length, 'symbols/templates are globally unique');
 
 // ---- bottom edit bar: clear / space ------------------------------------
@@ -485,7 +485,7 @@ assert.strictEqual(find(dialog, (node) => hasClass(node, 'mss-cell-focus')).leng
 
 // templates join the same navigation list as symbols
 clickTab('运算/结构');
-for (let step = 0; step < 14; step += 1) press('ArrowRight');
+for (let step = 0; step < 13; step += 1) press('ArrowRight');
 focused = find(dialog, (node) => hasClass(node, 'mss-cell-focus'))[0];
 assert.strictEqual(focused.props.title, '插入 x²', 'arrow keys cross from symbols into the template area');
 press('ArrowLeft');
