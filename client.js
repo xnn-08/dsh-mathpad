@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.9';
+    const VERSION = '0.4.10';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -84,8 +84,17 @@ window.__ModuleLoader__.load({
       },
     ];
 
+    // 面板/导航的静态结构：只依赖 GROUPS、LETTERS，不需要每帧重建。
+    const NAV_IDS = GROUPS.map((group) => group.id).concat('keys');
+    const SECTIONS = GROUPS.map((group) => ({
+      id: group.id,
+      name: group.name,
+      items: group.items.map((item) => ({ glyph: item[0], text: item[1], offset: item[3], meta: item[4] })),
+    }));
+
     // 字母条：常用变量之外的 a–z，按需展开，不占常驻空间。
     const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('').map((letter) => [letter, letter, letter]);
+    const LETTER_CELLS = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
 
     // 函数名用于 LaTeX 的“补空格 + 收下标”规则；长的排前面，避免 arcsin 被 sin 抢先匹配。
     const FUNCS = GROUPS.find((group) => group.id === 'fn').items
@@ -138,6 +147,9 @@ window.__ModuleLoader__.load({
       if (last === undefined || last.value.length <= 1) return null;
       return last.start;
     };
+
+    // 函数名正则只编译一次（toLatex 每次渲染都会调用）。
+    const FN_LATEX_RE = new RegExp('(?<!\\\\)(' + TOKEN_NAMES.join('|') + ')', 'g');
 
     const LATEX_SYMBOLS = [];
     for (const group of GROUPS) {
@@ -271,8 +283,8 @@ window.__ModuleLoader__.load({
       // 分式模板 (分子)/(分母) → \frac{分子}{分母}
       out = out.replace(/\(([^()]*)\)\/\(([^()]*)\)/g, (match, numerator, denominator) => '\\frac{' + numerator + '}{' + denominator + '}');
       // 函数名：长名优先；后面紧跟字母/数字时补一个空格（\sin x 而不是 \sinx）
-      const fnRe = new RegExp('(?<!\\\\)(' + TOKEN_NAMES.join('|') + ')', 'g');
-      out = out.replace(fnRe, (match, _name, offset, whole) => {
+      FN_LATEX_RE.lastIndex = 0;
+      out = out.replace(FN_LATEX_RE, (match, _name, offset, whole) => {
         const next = whole[offset + match.length] ?? '';
         return '\\' + match + (/[a-zA-Z0-9]/.test(next) ? ' ' : '');
       });
@@ -415,14 +427,12 @@ window.__ModuleLoader__.load({
       let s = 0;
       const corner = [[0, 0]];
       for (let i = 0; i < samples * subSteps; i += 1) {
-        for (let k = 0; k < 1; k += 1) {
-          const kMid = kappaAt(s + h / 2);
-          const thMid = theta + kMid * h / 2;
-          x += Math.cos(thMid) * h;
-          y += Math.sin(thMid) * h;
-          theta += kappaAt(s + h) * h;
-          s += h;
-        }
+        const kMid = kappaAt(s + h / 2);
+        const thMid = theta + kMid * h / 2;
+        x += Math.cos(thMid) * h;
+        y += Math.sin(thMid) * h;
+        theta += kappaAt(s + h) * h;
+        s += h;
         if ((i + 1) % subSteps === 0) corner.push([x, y]);
       }
       corner.push([x, y]);
@@ -457,6 +467,12 @@ window.__ModuleLoader__.load({
     const FRAME_INSET = -(FRAME_VIEW - FRAME_SIZE) / 2;
 
     const CSS = `
+      :where(.mss-trigger, .mss-scrim){
+        --mss-primary: var(--dsw-alias-state-business-primary, #4176e6);
+        --mss-hover: var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06));
+        --mss-hover-soft: var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.05));
+        --mss-hover-strong: var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.08));
+      }
       .mss-trigger{position:relative;display:flex;align-items:center;justify-content:center;width:28px;height:28px;
         padding:0;margin:0 2px 0 0;border:0;background:transparent;color:inherit;opacity:.8;cursor:pointer;
         line-height:1;box-sizing:border-box;user-select:none;-webkit-user-select:none}
@@ -467,7 +483,7 @@ window.__ModuleLoader__.load({
       .mss-frame-line{fill:none;stroke:currentColor;stroke-width:1;opacity:.26;transition:opacity 120ms ease}
       .mss-trigger:hover .mss-frame-line{opacity:.62}
       .mss-trigger:hover .mss-frame-fill{opacity:.045}
-      .mss-trigger:focus-visible .mss-frame-line{stroke:var(--dsw-alias-state-business-primary, #4176e6);opacity:1}
+      .mss-trigger:focus-visible .mss-frame-line{stroke:var(--mss-primary);opacity:1}
       .mss-trigger:focus-visible .mss-frame-fill{opacity:.06}
       /* ∑ 的墨迹天然偏下：line-height:0 让行内盒贴住盒子中心，再用墨迹中心差把它挪正 */
       .mss-trigger .mss-sigma{position:relative;z-index:1;display:block;font-size:12px;line-height:0;
@@ -481,11 +497,11 @@ window.__ModuleLoader__.load({
       .mss-head p{margin:3px 0 0;font-size:12px;opacity:.6}
       .mss-close{margin-left:auto;width:28px;height:28px;border:none;background:transparent;color:inherit;opacity:.5;
         font-size:17px;line-height:1;border-radius:8px;cursor:pointer}
-      .mss-close:hover{opacity:.9;background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-close:hover{opacity:.9;background:var(--mss-hover)}
       .mss-mode{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;cursor:pointer;
         border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));background:transparent;color:inherit;opacity:.75}
-      .mss-mode:hover{opacity:1;background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
-      .mss-mode-on{background:var(--dsw-alias-state-business-primary, #4176e6);border-color:transparent;color:#fff;opacity:1}
+      .mss-mode:hover{opacity:1;background:var(--mss-hover)}
+      .mss-mode-on{background:var(--mss-primary);border-color:transparent;color:#fff;opacity:1}
       .mss-drafttext{flex:1;min-width:0;font-family:"Cambria Math",Consolas,monospace;font-size:15px;opacity:.85;
         white-space:pre-wrap;word-break:break-all}
       .mss-search-wrap{padding:0 20px}
@@ -493,7 +509,7 @@ window.__ModuleLoader__.load({
         background:var(--dsw-alias-bg-module-platform, rgba(128,128,128,.05));color:inherit;padding:0 12px;
         font:inherit;font-size:13px;outline:none;box-sizing:border-box}
       .mss-search::placeholder{opacity:.45}
-      .mss-search:focus{border-color:var(--dsw-alias-state-business-primary, #4176e6)}
+      .mss-search:focus{border-color:var(--mss-primary)}
       .mss-body{padding:12px 20px 0;overflow:auto;flex:1;min-height:100px}
       .mss-sect{display:flex;align-items:flex-start;gap:10px;padding:6px 0}
       .mss-sect + .mss-sect{border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08))}
@@ -507,26 +523,26 @@ window.__ModuleLoader__.load({
       .mss-toggle .mss-code{opacity:.45}
       .mss-cell{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.1));border-radius:9px;background:transparent;
         color:inherit;padding:7px 4px 6px;text-align:center;cursor:pointer;font:inherit}
-      .mss-cell:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.05))}
+      .mss-cell:hover{background:var(--mss-hover-soft)}
       .mss-glyph{font-family:"Cambria Math","Segoe UI",serif;font-size:15px;line-height:1.25}
       .mss-code{font-size:10px;opacity:.55;margin-top:1px;font-family:Consolas,"SF Mono",monospace}
       .mss-keypad{display:flex;gap:6px;padding:2px 20px 10px;flex-wrap:wrap}
       .mss-key{min-width:32px;height:30px;padding:0 9px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
         background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
-      .mss-key:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-key:hover{background:var(--mss-hover)}
       .mss-key-space{color:inherit;opacity:.75;font-size:12px}
-      .mss-key-on{background:var(--dsw-alias-state-business-primary, #4176e6);border-color:transparent;color:#fff}
-      .mss-key-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px}
+      .mss-key-on{background:var(--mss-primary);border-color:transparent;color:#fff}
+      .mss-key-focus{outline:2px solid var(--mss-primary);outline-offset:-2px}
       .mss-suprow{display:flex;gap:6px;width:100%;margin-top:6px;padding-top:8px;
         border-top:1px dashed var(--dsw-alias-border-l1, rgba(0,0,0,.12))}
-      .mss-cell-focus{outline:2px solid var(--dsw-alias-state-business-primary, #4176e6);outline-offset:-2px;
-        background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.08))}
+      .mss-cell-focus{outline:2px solid var(--mss-primary);outline-offset:-2px;
+        background:var(--mss-hover-strong)}
       .mss-key-clear{margin-left:auto;opacity:.75}
-      .mss-flash{color:var(--dsw-alias-state-business-primary, #4176e6);font-weight:500}
+      .mss-flash{color:var(--mss-primary);font-weight:500}
       .mss-modewrap{position:relative;display:inline-flex}
       .mss-toast{position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);
         padding:4px 9px;border-radius:999px;z-index:2;
-        background:var(--dsw-alias-state-business-primary, #4176e6);color:#fff;font-size:11.5px;font-weight:500;
+        background:var(--mss-primary);color:#fff;font-size:11.5px;font-weight:500;
         pointer-events:none;white-space:nowrap;animation:mss-toast 1.4s ease forwards}
       @keyframes mss-toast{
         0%{opacity:0}
@@ -537,7 +553,7 @@ window.__ModuleLoader__.load({
       .mss-copy{margin-left:8px;flex:none;border:1px solid var(--dsw-alias-border-l2, rgba(38,49,72,.18));
         border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary, #5c6470);
         font:inherit;font-size:12px;padding:5px 10px;cursor:pointer}
-      .mss-copy:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-copy:hover{background:var(--mss-hover)}
       @media (max-width:720px){
         .mss-cells{grid-template-columns:repeat(4, minmax(0, 1fr))}
         .mss-letters{grid-template-columns:repeat(7, minmax(0, 1fr))}
@@ -548,7 +564,7 @@ window.__ModuleLoader__.load({
       .mss-slothead{display:flex;align-items:center;gap:10px}
       .mss-slotback{border:none;background:transparent;color:inherit;opacity:.7;font:inherit;font-size:12.5px;
         cursor:pointer;padding:4px 6px;border-radius:6px}
-      .mss-slotback:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-slotback:hover{background:var(--mss-hover)}
       .mss-slottitle{font-size:13.5px;font-weight:600}
       .mss-slotform{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
       .mss-slotfield{display:flex;flex-direction:column;gap:4px}
@@ -557,19 +573,19 @@ window.__ModuleLoader__.load({
       .mss-slotlabel{font-family:"Cambria Math",serif;font-size:15px}
       .mss-slotchip{min-width:44px;text-align:center;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
         border-radius:8px;padding:4px 8px;font-size:13px}
-      .mss-slotchip.on{border-color:var(--dsw-alias-state-business-primary, #4176e6);
+      .mss-slotchip.on{border-color:var(--mss-primary);
         box-shadow:0 0 0 3px rgba(65,118,230,.10)}
       .mss-slotops{opacity:.5;font-size:12px}
-      .mss-slotinput{border:1px solid var(--dsw-alias-state-business-primary, #4176e6);border-radius:9px;
+      .mss-slotinput{border:1px solid var(--mss-primary);border-radius:9px;
         padding:9px 11px;font:inherit;font-size:15px;background:var(--dsw-alias-bg-base, #fff);color:inherit;outline:none}
       .mss-slotgrid{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:6px;overflow:auto;flex:1;align-content:start}
       .mss-slotkey{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));border-radius:8px;background:transparent;
         color:inherit;font-family:"Cambria Math",serif;font-size:14px;padding:7px 4px;cursor:pointer}
-      .mss-slotkey:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-slotkey:hover{background:var(--mss-hover)}
       .mss-slothint{font-size:11.5px;opacity:.55}
       .mss-draft{margin:0 20px;border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));padding-top:12px}
       .mss-draftrow{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;
-        border:1px solid var(--dsw-alias-state-business-primary, #4176e6);
+        border:1px solid var(--mss-primary);
         box-shadow:0 0 0 3px rgba(65,118,230,.08);background:var(--dsw-alias-bg-base, #fff)}
       .mss-drafttag{font-size:11px;opacity:.5;flex:none}
       .mss-draftinput{flex:1;min-width:0;border:none;outline:none;background:transparent;color:inherit;
@@ -586,8 +602,8 @@ window.__ModuleLoader__.load({
         border-bottom-width:2px;border-radius:4px;padding:0 4px}
       .mss-btn{font:inherit;font-size:13px;border-radius:9px;padding:8px 14px;cursor:pointer;
         border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));background:transparent;color:inherit;opacity:.85}
-      .mss-btn:hover{opacity:1;background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
-      .mss-btn-primary{background:var(--dsw-alias-state-business-primary, #4176e6);border-color:transparent;color:#fff;opacity:1;font-weight:500}
+      .mss-btn:hover{opacity:1;background:var(--mss-hover)}
+      .mss-btn-primary{background:var(--mss-primary);border-color:transparent;color:#fff;opacity:1;font-weight:500}
       .mss-btn-primary:disabled{opacity:.45;cursor:default}
       .mss-foot .mss-spacer{flex:1}
     `;
@@ -651,14 +667,13 @@ window.__ModuleLoader__.load({
       const state = stateHook();
       const draftRef = React.useRef(null);
       const caretTarget = React.useRef(null);
-      const slotRef0 = React.useRef(null);
-      const slotRef1 = React.useRef(null);
+      const slotRefs = [React.useRef(null), React.useRef(null)];
 
       React.useEffect(() => {
         if (state.slot === null) return;
-        const input = slotRef0.current;
+        const input = slotRefs[state.slot.focus].current;
         if (input !== null && typeof input.focus === 'function') input.focus();
-      }, [state.slot === null ? '' : state.slot.kind]);
+      }, [state.slot === null ? '' : state.slot.kind, state.slot === null ? -1 : state.slot.focus]);
 
       React.useEffect(() => {
         if (!state.open || state.direct) return;
@@ -755,8 +770,7 @@ window.__ModuleLoader__.load({
         const slot = state.slot;
         if (slot === null) return;
         const index = slot.focus;
-        const ref = index === 0 ? slotRef0 : slotRef1;
-        const input = ref.current;
+        const input = slotRefs[index].current;
         const current = input !== null && typeof input.value === 'string' ? input.value : (slot.values[index] ?? '');
         const next = current + char;
         if (input !== null && typeof input.value === 'string') {
@@ -771,14 +785,19 @@ window.__ModuleLoader__.load({
         patchPanel({ slot: { ...slot, values } });
       };
 
+      const slotKeyDown = (event) => {
+        if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
+        if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); slotCommit(); }
+      };
+
       const slotCommit = () => {
         const slot = state.slot;
         if (slot === null) return;
         const read = (ref) => (ref.current !== null && typeof ref.current.value === 'string'
           ? ref.current.value
           : null);
-        const from = read(slotRef0) ?? slot.values[0] ?? '';
-        const to = read(slotRef1) ?? slot.values[1] ?? '';
+        const from = read(slotRefs[0]) ?? slot.values[0] ?? '';
+        const to = read(slotRefs[1]) ?? slot.values[1] ?? '';
         const filled = slot.kind === 'lim' ? 'lim(' + from + ')→(' + to + ')' : '∫_(' + from + ')^(' + to + ')';
         replaceRange(state.slotStart, state.slotEnd, filled);
         patchPanel({ slot: null, slotStart: 0, slotEnd: 0 });
@@ -804,12 +823,6 @@ window.__ModuleLoader__.load({
 
       const sourceText = state.direct ? state.chain.join('') : state.text;
       const reading = state.latex ? toLatex(sourceText) : explain(sourceText);
-      const sections = GROUPS.map((group) => ({
-        id: group.id,
-        name: group.name,
-        items: group.items.map((item) => ({ glyph: item[0], text: item[1], offset: item[3], meta: item[4] })),
-      }));
-      const letterCells = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
 
       const onDraftKeyDown = (event) => {
         if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
@@ -849,7 +862,6 @@ window.__ModuleLoader__.load({
         ...(state.direct ? [] : [{ id: 'backspace', label: '⌫ 删除', title: '删除光标前一个字符', run: backspace }]),
       ];
 
-      const NAV_IDS = GROUPS.map((group) => group.id).concat('keys');
       const COLS = (typeof window !== 'undefined' && window.innerWidth <= 720) ? 4 : 6;
       const sectionIndex = () => Math.max(0, NAV_IDS.indexOf(state.activeSection));
       const itemsOf = (index) => (index < GROUPS.length ? GROUPS[index].items : KEYS);
@@ -980,47 +992,30 @@ window.__ModuleLoader__.load({
               ),
               h('div', { className: 'mss-slotform' },
                 h('span', { className: 'mss-slotlabel' }, state.slot.kind === 'lim' ? 'lim' : '∫'),
-                h('label', { className: 'mss-slotfield' },
-                  h('span', { className: 'mss-slotcap' }, state.slot.kind === 'lim' ? '极限点' : '下限'),
-                  h('input', {
-                    key: 'slot-0-' + state.slot.kind,
-                    className: 'mss-slotinput' + (state.slot.focus === 0 ? ' on' : ''),
-                    ref: slotRef0,
-                    defaultValue: state.slot.values[0] ?? '',
-                    placeholder: state.slot.kind === 'lim' ? 'x' : '0',
-                    onFocus: () => patchPanel({ slot: { ...state.slot, focus: 0 } }),
-                    onChange: (event) => {
-                      const values = state.slot.values.slice();
-                      values[0] = event.target.value;
-                      patchPanel({ slot: { ...state.slot, values } });
-                    },
-                    onKeyDown: (event) => {
-                      if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
-                      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); slotCommit(); }
-                    },
-                  }),
-                ),
-                h('span', { className: 'mss-slotops' }, state.slot.kind === 'lim' ? '→' : '^'),
-                h('label', { className: 'mss-slotfield' },
-                  h('span', { className: 'mss-slotcap' }, state.slot.kind === 'lim' ? '趋向' : '上限'),
-                  h('input', {
-                    key: 'slot-1-' + state.slot.kind,
-                    className: 'mss-slotinput' + (state.slot.focus === 1 ? ' on' : ''),
-                    ref: slotRef1,
-                    defaultValue: state.slot.values[1] ?? '',
-                    placeholder: state.slot.kind === 'lim' ? '0' : '1',
-                    onFocus: () => patchPanel({ slot: { ...state.slot, focus: 1 } }),
-                    onChange: (event) => {
-                      const values = state.slot.values.slice();
-                      values[1] = event.target.value;
-                      patchPanel({ slot: { ...state.slot, values } });
-                    },
-                    onKeyDown: (event) => {
-                      if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
-                      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); slotCommit(); }
-                    },
-                  }),
-                ),
+                [0, 1].flatMap((index) => {
+                  const isLim = state.slot.kind === 'lim';
+                  const field = h('label', { className: 'mss-slotfield', key: 'slot-field-' + index },
+                    h('span', { className: 'mss-slotcap' },
+                      isLim ? (index === 0 ? '极限点' : '趋向') : (index === 0 ? '下限' : '上限')),
+                    h('input', {
+                      key: 'slot-' + index + '-' + state.slot.kind,
+                      className: 'mss-slotinput' + (state.slot.focus === index ? ' on' : ''),
+                      ref: slotRefs[index],
+                      defaultValue: state.slot.values[index] ?? '',
+                      placeholder: isLim ? (index === 0 ? 'x' : '0') : (index === 0 ? '0' : '1'),
+                      onFocus: () => patchPanel({ slot: { ...state.slot, focus: index } }),
+                      onChange: (event) => {
+                        const values = state.slot.values.slice();
+                        values[index] = event.target.value;
+                        patchPanel({ slot: { ...state.slot, values } });
+                      },
+                      onKeyDown: slotKeyDown,
+                    }),
+                  );
+                  return index === 0
+                    ? [field, h('span', { className: 'mss-slotops', key: 'slot-ops' }, isLim ? '→' : '^')]
+                    : [field];
+                }),
               ),
               h('div', { className: 'mss-slotgrid' },
                 GROUPS.find((group) => group.id === 'vars').items.map(([glyph, value]) => h('button', {
@@ -1044,7 +1039,7 @@ window.__ModuleLoader__.load({
               className: 'mss-body',
               onMouseLeave: () => patchPanel({ mode: 'idle', activeSection: 'vars', focusIndex: 0 }),
             },
-              sections.map((section) => h('div', {
+              SECTIONS.map((section) => h('div', {
                 key: section.id,
                 className: 'mss-sect',
                 onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: 0, mode: 'selected' }),
@@ -1086,7 +1081,7 @@ window.__ModuleLoader__.load({
                   ),
                   section.id === 'vars' && state.letters
                     ? h('div', { className: 'mss-cells mss-letters' },
-                      letterCells.map((item) => h('button', {
+                      LETTER_CELLS.map((item) => h('button', {
                         key: 'letter-' + item.text,
                         type: 'button',
                         className: 'mss-cell mss-letter-cell',

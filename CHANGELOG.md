@@ -1,5 +1,16 @@
 # 变更记录：从 beta 到 v3.7 / 开源 0.2.x
 
+## 0.4.10
+
+代码整理，无行为变化：
+
+- 删掉 `buildFramePath` 里恒执行一次的 `for (let k = 0; k < 1; ...)` 死循环。
+- `SECTIONS` / `LETTER_CELLS` / `NAV_IDS` 提到模块级，不再每帧重建。
+- CSS 提取 `--mss-primary` / `--mss-hover` / `--mss-hover-soft` / `--mss-hover-strong`，色值只在定义处出现一次。
+- slot 两个输入框改由 `[0, 1].flatMap` 生成，共用 `slotKeyDown`；`slotRefs` 统一引用；focus effect 补上 `focus` 依赖。
+- `toLatex` 的函数名正则预编译为 `FN_LATEX_RE`，复用时重置 `lastIndex`。
+- `docs/*.html` 保留（README 链接与 PNG 源文件），未删。
+
 ## 0.4.9
 
 - **空白处改为确认**：点填空页的非交互区域不再取消，而是等同 `Enter`——把当前空的值插回草稿并返回主面板；两个空都没填时插入原格式 `lim()→()` / `∫_()^()`。
