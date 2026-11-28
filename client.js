@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.3';
+    const VERSION = '0.4.4';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -62,8 +62,8 @@ window.__ModuleLoader__.load({
           ['∮', '∮', '\\oint'],
           ['∂', '∂', '\\partial'],
           ['d', 'd', 'd'],
-          ['lim→', 'lim()→()', '\\lim_{} \\to ', 4],
-          ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3],
+          ['lim→', 'lim()→()', '\\lim_{} \\to ', 4, 'lim'],
+          ['∫ₐᵇ', '∫_()^()', '\\int_{}^{}', 3, 'int'],
           ['→', '→', '\\to'],
         ],
       },
@@ -101,6 +101,21 @@ window.__ModuleLoader__.load({
       const tokens = [];
       let index = 0;
       while (index < source.length) {
+        const rest = source.slice(index);
+        const filledLim = /^lim\([^()]*\)→\([^()]*\)/.exec(rest);
+        if (filledLim !== null) {
+          tokens.push({ value: 'lim', start: index });
+          tokens.push({ value: filledLim[0].slice(3), start: index + 3 });
+          index += filledLim[0].length;
+          continue;
+        }
+        const filledInt = /^∫_\([^()]*\)\^\([^()]*\)/.exec(rest);
+        if (filledInt !== null) {
+          tokens.push({ value: '∫', start: index });
+          tokens.push({ value: filledInt[0].slice(1), start: index + 1 });
+          index += filledInt[0].length;
+          continue;
+        }
         let matched = null;
         for (const token of TOKEN_NAMES) {
           if (source.startsWith(token, index)) { matched = token; break; }
@@ -182,6 +197,9 @@ window.__ModuleLoader__.load({
       focusIndex: 0,
       pointerInDraft: false,
       flash: '',
+      slot: null,
+      slotStart: 0,
+      slotEnd: 0,
       chain: [],
     };
     // 草稿里最后的光标位置：点击符号时插在这里，而不是总插到末尾。
@@ -273,11 +291,11 @@ window.__ModuleLoader__.load({
       if (actions === undefined || actions === null) return;
       let span = null;
       try { span = actions.captureInsertion(); } catch { span = null; }
-      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, mode: 'idle', activeSection: 'vars', focusIndex: 0, pointerInDraft: false, flash: '', chain: [] });
+      patchPanel({ open: true, actions, span, text: '', direct: readDirectMode(), latex: readLatexMode(), letters: false, sup: false, mode: 'idle', activeSection: 'vars', focusIndex: 0, pointerInDraft: false, flash: '', slot: null, slotStart: 0, slotEnd: 0, chain: [] });
       caretPosition = null;
     };
     const closePanel = () => {
-      patchPanel({ open: false, actions: null, span: null, text: '', chain: [] });
+      patchPanel({ open: false, actions: null, span: null, text: '', chain: [], slot: null });
     };
 
     const setDirectMode = (direct) => {
@@ -455,7 +473,7 @@ window.__ModuleLoader__.load({
       .mss-trigger .mss-sigma{position:relative;z-index:1;display:block;font-size:12px;line-height:0;
         transform:translateY(var(--mss-ink-center, -2.1px))}
       .mss-scrim{position:fixed;inset:0;z-index:600;background:rgba(15,17,21,.28);display:grid;place-items:center;padding:24px}
-      .mss-dialog{width:min(660px, calc(100vw - 48px));max-height:calc(100vh - 64px);display:flex;flex-direction:column;
+      .mss-dialog{position:relative;width:min(660px, calc(100vw - 48px));max-height:calc(100vh - 64px);display:flex;flex-direction:column;
         background:var(--dsw-alias-bg-base, #fff);color:inherit;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));
         border-radius:16px;box-shadow:0 24px 64px rgba(15,17,21,.24),0 2px 8px rgba(15,17,21,.08);overflow:hidden}
       .mss-head{display:flex;align-items:flex-start;gap:10px;padding:18px 20px 10px}
@@ -524,6 +542,28 @@ window.__ModuleLoader__.load({
         .mss-cells{grid-template-columns:repeat(4, minmax(0, 1fr))}
         .mss-letters{grid-template-columns:repeat(7, minmax(0, 1fr))}
       }
+      .mss-slotpage{position:absolute;left:10px;right:10px;top:58px;bottom:10px;z-index:6;
+        display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:14px;
+        background:var(--dsw-alias-bg-base, #fff);box-shadow:0 14px 44px rgba(20,30,60,.2)}
+      .mss-slothead{display:flex;align-items:center;gap:10px}
+      .mss-slotback{border:none;background:transparent;color:inherit;opacity:.7;font:inherit;font-size:12.5px;
+        cursor:pointer;padding:4px 6px;border-radius:6px}
+      .mss-slotback:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-slottitle{font-size:13.5px;font-weight:600}
+      .mss-slotchips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .mss-slotlabel{font-family:"Cambria Math",serif;font-size:15px}
+      .mss-slotchip{min-width:44px;text-align:center;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
+        border-radius:8px;padding:4px 8px;font-size:13px}
+      .mss-slotchip.on{border-color:var(--dsw-alias-state-business-primary, #4176e6);
+        box-shadow:0 0 0 3px rgba(65,118,230,.10)}
+      .mss-slotops{opacity:.5;font-size:12px}
+      .mss-slotinput{border:1px solid var(--dsw-alias-state-business-primary, #4176e6);border-radius:9px;
+        padding:9px 11px;font:inherit;font-size:15px;background:var(--dsw-alias-bg-base, #fff);color:inherit;outline:none}
+      .mss-slotgrid{display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:6px;overflow:auto;flex:1;align-content:start}
+      .mss-slotkey{border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.12));border-radius:8px;background:transparent;
+        color:inherit;font-family:"Cambria Math",serif;font-size:14px;padding:7px 4px;cursor:pointer}
+      .mss-slotkey:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
+      .mss-slothint{font-size:11.5px;opacity:.55}
       .mss-draft{margin:0 20px;border-top:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.08));padding-top:12px}
       .mss-draftrow{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 10px;border-radius:10px;
         border:1px solid var(--dsw-alias-state-business-primary, #4176e6);
@@ -608,6 +648,14 @@ window.__ModuleLoader__.load({
       const state = stateHook();
       const draftRef = React.useRef(null);
       const caretTarget = React.useRef(null);
+      const slotInputRef = React.useRef(null);
+
+      React.useEffect(() => {
+        if (state.slot === null) return;
+        if (slotInputRef.current !== null && typeof slotInputRef.current.focus === 'function') {
+          slotInputRef.current.focus();
+        }
+      }, [state.slot === null ? -1 : state.slot.index, state.slot === null ? '' : state.slot.kind]);
 
       React.useEffect(() => {
         if (!state.open || state.direct) return;
@@ -690,6 +738,36 @@ window.__ModuleLoader__.load({
         flash('✅ 已插入模板');
       };
 
+      const openSlot = (kind) => {
+        patchPanel({
+          slot: { kind, index: 0, values: ['', ''] },
+          slotStart: caret(),
+          slotEnd: caretEnd(),
+          mode: 'idle',
+          flash: '',
+        });
+      };
+
+      const slotAppend = (char) => {
+        const slot = state.slot;
+        if (slot === null) return;
+        const values = slot.values.slice();
+        values[slot.index] = (values[slot.index] ?? '') + char;
+        patchPanel({ slot: { ...slot, values } });
+      };
+
+      const slotAdvance = () => {
+        const slot = state.slot;
+        if (slot === null) return;
+        if (slot.index === 0) { patchPanel({ slot: { ...slot, index: 1 } }); return; }
+        const from = slot.values[0] ?? '';
+        const to = slot.values[1] ?? '';
+        const filled = slot.kind === 'lim' ? 'lim(' + from + ')→(' + to + ')' : '∫_(' + from + ')^(' + to + ')';
+        replaceRange(state.slotStart, state.slotEnd, filled);
+        patchPanel({ slot: null, slotStart: 0, slotEnd: 0 });
+        flash('✅ 已插入模板');
+      };
+
       const backspace = () => {
         const start = caret();
         const end = caretEnd();
@@ -712,7 +790,7 @@ window.__ModuleLoader__.load({
       const sections = GROUPS.map((group) => ({
         id: group.id,
         name: group.name,
-        items: group.items.map((item) => ({ glyph: item[0], text: item[1], offset: item[3] })),
+        items: group.items.map((item) => ({ glyph: item[0], text: item[1], offset: item[3], meta: item[4] })),
       }));
       const letterCells = LETTERS.map((item) => ({ glyph: item[0], text: item[1] }));
 
@@ -793,7 +871,8 @@ window.__ModuleLoader__.load({
         if (si < GROUPS.length) {
           const items = GROUPS[si].items;
           const item = items[Math.min(index, items.length - 1)];
-          if (item[3] === undefined) insertSnippet(item[1]);
+          if (item[4] !== undefined) openSlot(item[4]);
+          else if (item[3] === undefined) insertSnippet(item[1]);
           else insertTemplate(item[1], item[3]);
           return;
         }
@@ -802,7 +881,13 @@ window.__ModuleLoader__.load({
       };
 
       const onKeyDown = (event) => {
-        if (event.key === 'Escape') { event.stopPropagation(); closePanel(); return; }
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          if (state.slot !== null) { patchPanel({ slot: null }); return; }
+          closePanel();
+          return;
+        }
+        if (state.slot !== null) return;
         // 鼠标在草稿区时，方向键交给输入框移动光标，不抢。
         if (state.pointerInDraft && event.key.startsWith('Arrow')) return;
         if (event.key === 'ArrowRight') { event.preventDefault(); moveFocus(1, 0); return; }
@@ -859,6 +944,62 @@ window.__ModuleLoader__.load({
               }, state.latex ? 'TeX ✓' : 'TeX'),
               h('button', { type: 'button', className: 'mss-close', 'aria-label': '关闭', onClick: closePanel }, '×'),
             ),
+            state.slot === null ? null : h('div', { className: 'mss-slotpage' },
+              h('div', { className: 'mss-slothead' },
+                h('button', {
+                  type: 'button',
+                  className: 'mss-slotback',
+                  onClick: () => patchPanel({ slot: null }),
+                }, '← 返回'),
+                h('div', { className: 'mss-slottitle' }, state.slot.kind === 'lim' ? 'lim 模板' : '积分上下限'),
+              ),
+              h('div', { className: 'mss-slotchips' },
+                h('span', { className: 'mss-slotlabel' }, state.slot.kind === 'lim' ? 'lim' : '∫'),
+                h('span', { className: 'mss-slotchip' + (state.slot.index === 0 ? ' on' : '') },
+                  state.slot.values[0] === '' ? '空' : state.slot.values[0]),
+                h('span', { className: 'mss-slotops' }, state.slot.kind === 'lim' ? '→' : '上下限'),
+                h('span', { className: 'mss-slotchip' + (state.slot.index === 1 ? ' on' : '') },
+                  state.slot.values[1] === '' ? '空' : state.slot.values[1]),
+              ),
+              h('input', {
+                className: 'mss-slotinput',
+                ref: slotInputRef,
+                value: state.slot.values[state.slot.index] ?? '',
+                placeholder: state.slot.kind === 'lim'
+                  ? (state.slot.index === 0 ? '极限点，例如 x' : '趋向的值，例如 0')
+                  : (state.slot.index === 0 ? '下限，例如 0' : '上限，例如 1'),
+                onChange: (event) => {
+                  const values = state.slot.values.slice();
+                  values[state.slot.index] = event.target.value;
+                  patchPanel({ slot: { ...state.slot, values } });
+                },
+                onKeyDown: (event) => {
+                  if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    slotAdvance();
+                  }
+                },
+              }),
+              h('div', { className: 'mss-slotgrid' },
+                GROUPS.find((group) => group.id === 'vars').items.map(([glyph, value]) => h('button', {
+                  key: 'slot-var-' + value,
+                  type: 'button',
+                  className: 'mss-slotkey',
+                  onMouseDown: keepFocus,
+                  onClick: () => slotAppend(value),
+                }, glyph)),
+                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((digit) => h('button', {
+                  key: 'slot-digit-' + digit,
+                  type: 'button',
+                  className: 'mss-slotkey',
+                  onMouseDown: keepFocus,
+                  onClick: () => slotAppend(digit),
+                }, digit)),
+              ),
+              h('div', { className: 'mss-slothint' }, state.slot.index === 0 ? 'Enter 下一个空' : 'Enter 完成并返回'),
+            ),
             h('div', {
               className: 'mss-body',
               onMouseLeave: () => patchPanel({ mode: 'idle', activeSection: 'vars', focusIndex: 0 }),
@@ -881,7 +1022,8 @@ window.__ModuleLoader__.load({
                       onMouseEnter: () => patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' }),
                       onClick: () => {
                         patchPanel({ activeSection: section.id, focusIndex: index, mode: 'selected' });
-                        if (item.offset === undefined) insertSnippet(item.text);
+                        if (item.meta !== undefined) openSlot(item.meta);
+                        else if (item.offset === undefined) insertSnippet(item.text);
                         else insertTemplate(item.text, item.offset);
                       },
                     },

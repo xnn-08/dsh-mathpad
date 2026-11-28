@@ -212,7 +212,22 @@ assert.ok(draftValue().includes('√[]()'), 'nth-root template inserted, got ' +
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '', selectionStart: 0 } });
 dialog = render('math-symbols-panel');
 clickCell('lim()→()');
-assert.ok(draftValue().includes('lim()→()'), 'lim template inserted, got ' + draftValue());
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length > 0,
+  'lim template opens its own fill-in page');
+let slotInput = byClass(dialog, 'mss-slotinput')[0];
+assert.ok(slotInput, 'slot input present');
+slotInput.props.onChange({ target: { value: 'x' } });
+dialog = render('math-symbols-panel');
+byClass(dialog, 'mss-slotinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
+dialog = render('math-symbols-panel');
+assert.strictEqual(byClass(dialog, 'mss-slotinput')[0].props.value, '', 'second slot starts empty');
+byClass(dialog, 'mss-slotinput')[0].props.onChange({ target: { value: '0' } });
+dialog = render('math-symbols-panel');
+byClass(dialog, 'mss-slotinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
+dialog = render('math-symbols-panel');
+assert.strictEqual(draftValue(), 'lim(x)→(0)', 'filled lim template inserted, got ' + draftValue());
+assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
+  'slot page closes after the last Enter');
 
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'e3', selectionStart: 2 } });
 dialog = render('math-symbols-panel');
@@ -351,6 +366,18 @@ byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'arcsinsi
 dialog = render('math-symbols-panel');
 clickKey('⌫ 删除');
 assert.strictEqual(draftValue(), 'arcsin', 'composite: trailing sin removed as one token, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'lim(x)→(0)', selectionStart: 11 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), 'lim', 'filled lim deletes its content as one subject, got ' + draftValue());
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), '', 'second delete removes lim itself, got ' + draftValue());
+
+byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: '∫_(0)^(1)', selectionStart: 9 } });
+dialog = render('math-symbols-panel');
+clickKey('⌫ 删除');
+assert.strictEqual(draftValue(), '∫', 'filled integral keeps the sign after one delete, got ' + draftValue());
 
 byClass(dialog, 'mss-draftinput')[0].props.onChange({ target: { value: 'ln', selectionStart: 2 } });
 dialog = render('math-symbols-panel');
