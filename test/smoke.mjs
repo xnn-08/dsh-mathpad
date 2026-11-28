@@ -225,6 +225,18 @@ slotInputsOf()[1].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropa
 dialog = render('math-symbols-panel');assert.strictEqual(draftValue(), 'lim(x)→(0)', 'filled lim template inserted, got ' + draftValue());
 assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
   'slot page closes after the last Enter');
+// clicking the blank area of the fill-in page returns to the main panel
+clickCell('lim()→()');
+dialog = render('math-symbols-panel');
+const slotPage = find(dialog, (node) => node.props && node.props.className === 'mss-slotpage')[0];
+assert.ok(slotPage, 'slot page open');
+slotPage.props.onMouseDown({ target: slotPage, currentTarget: slotPage });
+dialog = render('math-symbols-panel');
+assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
+  'blank click closes the fill-in page');
+assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-dialog').length > 0,
+  'main panel stays open after blank click');
+
 // clicking a slot key must keep the page alive
 clickCell('lim()→()');
 dialog = render('math-symbols-panel');

@@ -1,6 +1,6 @@
 {
   "name": "dsh-mathpad",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Math symbol palette for the DeepSeek Harness composer: click-to-insert, editable draft, operators, and LaTeX conversion. DSH 输入框的数学符号面板：点选插入、可编辑草稿、运算符与 LaTeX 转换。",
   "license": "MIT",
   "author": "xnn-08",

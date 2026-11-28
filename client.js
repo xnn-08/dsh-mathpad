@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.6';
+    const VERSION = '0.4.7';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -961,7 +961,10 @@ window.__ModuleLoader__.load({
               }, state.latex ? 'TeX ✓' : 'TeX'),
               h('button', { type: 'button', className: 'mss-close', 'aria-label': '关闭', onClick: closePanel }, '×'),
             ),
-            state.slot === null ? null : h('div', { className: 'mss-slotpage' },
+            state.slot === null ? null : h('div', {
+              className: 'mss-slotpage',
+              onMouseDown: (event) => { if (event.target === event.currentTarget) patchPanel({ slot: null }); },
+            },
               h('div', { className: 'mss-slothead' },
                 h('button', {
                   type: 'button',
