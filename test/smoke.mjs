@@ -126,6 +126,7 @@ const clickKey = (label) => {
 };
 const draftValue = () => byClass(dialog, 'mss-draftinput')[0].props.value;
 const preview = () => textOf(byClass(dialog, 'mss-math')[0]);
+const slotInputsOf = () => find(dialog, (node) => node.props && typeof node.props.className === 'string' && node.props.className.includes('mss-slotinput'));
 
 // ---- before opening: no dialog -------------------------------------------
 assert.strictEqual(render('math-symbols-panel'), null, 'panel renders nothing while closed');
@@ -214,18 +215,14 @@ dialog = render('math-symbols-panel');
 clickCell('lim()→()');
 assert.ok(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length > 0,
   'lim template opens its own fill-in page');
-let slotInput = byClass(dialog, 'mss-slotinput')[0];
-assert.ok(slotInput, 'slot input present');
-slotInput.props.onChange({ target: { value: 'x' } });
+const slotInputs = slotInputsOf();
+assert.strictEqual(slotInputs.length, 2, 'two slot inputs are visible at once');
+slotInputs[0].props.onChange({ target: { value: 'x' } });
 dialog = render('math-symbols-panel');
-byClass(dialog, 'mss-slotinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
+slotInputsOf()[1].props.onChange({ target: { value: '0' } });
 dialog = render('math-symbols-panel');
-assert.strictEqual(byClass(dialog, 'mss-slotinput')[0].props.defaultValue, '', 'second slot starts empty');
-byClass(dialog, 'mss-slotinput')[0].props.onChange({ target: { value: '0' } });
-dialog = render('math-symbols-panel');
-byClass(dialog, 'mss-slotinput')[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
-dialog = render('math-symbols-panel');
-assert.strictEqual(draftValue(), 'lim(x)→(0)', 'filled lim template inserted, got ' + draftValue());
+slotInputsOf()[1].props.onKeyDown({ key: 'Enter', preventDefault() {}, stopPropagation() {} });
+dialog = render('math-symbols-panel');assert.strictEqual(draftValue(), 'lim(x)→(0)', 'filled lim template inserted, got ' + draftValue());
 assert.strictEqual(find(dialog, (node) => node.props && node.props.className === 'mss-slotpage').length, 0,
   'slot page closes after the last Enter');
 // clicking a slot key must keep the page alive

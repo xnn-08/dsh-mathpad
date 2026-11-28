@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
     const h = React.createElement;
     // 与 package.json 的 version 保持一致：面板底部会显示它，用来确认页面里跑的是哪一版。
-    const VERSION = '0.4.5';
+    const VERSION = '0.4.6';
 
     // ---------------------------------------------------------------------
     // 符号表：面板渲染、LaTeX 转换都从这张表生成。加一个符号 = 加一行。
@@ -550,6 +550,9 @@ window.__ModuleLoader__.load({
         cursor:pointer;padding:4px 6px;border-radius:6px}
       .mss-slotback:hover{background:var(--dsw-alias-interactive-bg-hover, rgba(38,49,72,.06))}
       .mss-slottitle{font-size:13.5px;font-weight:600}
+      .mss-slotform{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+      .mss-slotfield{display:flex;flex-direction:column;gap:4px}
+      .mss-slotcap{font-size:11px;opacity:.55}
       .mss-slotchips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .mss-slotlabel{font-family:"Cambria Math",serif;font-size:15px}
       .mss-slotchip{min-width:44px;text-align:center;border:1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.14));
@@ -648,17 +651,14 @@ window.__ModuleLoader__.load({
       const state = stateHook();
       const draftRef = React.useRef(null);
       const caretTarget = React.useRef(null);
-      const slotInputRef = React.useRef(null);
+      const slotRef0 = React.useRef(null);
+      const slotRef1 = React.useRef(null);
 
       React.useEffect(() => {
         if (state.slot === null) return;
-        const input = slotInputRef.current;
-        if (input === null || typeof input.focus !== 'function') return;
-        input.focus();
-        if (typeof input.setSelectionRange === 'function' && typeof input.value === 'string') {
-          try { input.setSelectionRange(input.value.length, input.value.length); } catch { /* 忽略 */ }
-        }
-      }, [state.slot === null ? -1 : state.slot.index, state.slot === null ? '' : state.slot.kind]);
+        const input = slotRef0.current;
+        if (input !== null && typeof input.focus === 'function') input.focus();
+      }, [state.slot === null ? '' : state.slot.kind]);
 
       React.useEffect(() => {
         if (!state.open || state.direct) return;
@@ -743,7 +743,7 @@ window.__ModuleLoader__.load({
 
       const openSlot = (kind) => {
         patchPanel({
-          slot: { kind, index: 0, values: ['', ''] },
+          slot: { kind, values: ['', ''], focus: 0 },
           slotStart: caret(),
           slotEnd: caretEnd(),
           mode: 'idle',
@@ -754,8 +754,10 @@ window.__ModuleLoader__.load({
       const slotAppend = (char) => {
         const slot = state.slot;
         if (slot === null) return;
-        const input = slotInputRef.current;
-        const current = input !== null && typeof input.value === 'string' ? input.value : (slot.values[slot.index] ?? '');
+        const index = slot.focus;
+        const ref = index === 0 ? slotRef0 : slotRef1;
+        const input = ref.current;
+        const current = input !== null && typeof input.value === 'string' ? input.value : (slot.values[index] ?? '');
         const next = current + char;
         if (input !== null && typeof input.value === 'string') {
           input.value = next;
@@ -765,20 +767,18 @@ window.__ModuleLoader__.load({
           }
         }
         const values = slot.values.slice();
-        values[slot.index] = next;
+        values[index] = next;
         patchPanel({ slot: { ...slot, values } });
       };
 
-      const slotAdvance = () => {
+      const slotCommit = () => {
         const slot = state.slot;
         if (slot === null) return;
-        const input = slotInputRef.current;
-        const live = input !== null && typeof input.value === 'string' ? input.value : null;
-        const values = slot.values.slice();
-        if (live !== null) values[slot.index] = live;
-        if (slot.index === 0) { patchPanel({ slot: { ...slot, values, index: 1 } }); return; }
-        const from = values[0] ?? '';
-        const to = values[1] ?? '';
+        const read = (ref) => (ref.current !== null && typeof ref.current.value === 'string'
+          ? ref.current.value
+          : null);
+        const from = read(slotRef0) ?? slot.values[0] ?? '';
+        const to = read(slotRef1) ?? slot.values[1] ?? '';
         const filled = slot.kind === 'lim' ? 'lim(' + from + ')→(' + to + ')' : '∫_(' + from + ')^(' + to + ')';
         replaceRange(state.slotStart, state.slotEnd, filled);
         patchPanel({ slot: null, slotStart: 0, slotEnd: 0 });
@@ -970,38 +970,50 @@ window.__ModuleLoader__.load({
                 }, '← 返回'),
                 h('div', { className: 'mss-slottitle' }, state.slot.kind === 'lim' ? 'lim 模板' : '积分上下限'),
               ),
-              h('div', { className: 'mss-slotchips' },
+              h('div', { className: 'mss-slotform' },
                 h('span', { className: 'mss-slotlabel' }, state.slot.kind === 'lim' ? 'lim' : '∫'),
-                h('span', { className: 'mss-slotchip' + (state.slot.index === 0 ? ' on' : '') },
-                  state.slot.values[0] === '' ? '空' : state.slot.values[0]),
-                h('span', { className: 'mss-slotops' }, state.slot.kind === 'lim' ? '→' : '上下限'),
-                h('span', { className: 'mss-slotchip' + (state.slot.index === 1 ? ' on' : '') },
-                  state.slot.values[1] === '' ? '空' : state.slot.values[1]),
+                h('label', { className: 'mss-slotfield' },
+                  h('span', { className: 'mss-slotcap' }, state.slot.kind === 'lim' ? '极限点' : '下限'),
+                  h('input', {
+                    key: 'slot-0-' + state.slot.kind,
+                    className: 'mss-slotinput' + (state.slot.focus === 0 ? ' on' : ''),
+                    ref: slotRef0,
+                    defaultValue: state.slot.values[0] ?? '',
+                    placeholder: state.slot.kind === 'lim' ? 'x' : '0',
+                    onFocus: () => patchPanel({ slot: { ...state.slot, focus: 0 } }),
+                    onChange: (event) => {
+                      const values = state.slot.values.slice();
+                      values[0] = event.target.value;
+                      patchPanel({ slot: { ...state.slot, values } });
+                    },
+                    onKeyDown: (event) => {
+                      if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
+                      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); slotCommit(); }
+                    },
+                  }),
+                ),
+                h('span', { className: 'mss-slotops' }, state.slot.kind === 'lim' ? '→' : '^'),
+                h('label', { className: 'mss-slotfield' },
+                  h('span', { className: 'mss-slotcap' }, state.slot.kind === 'lim' ? '趋向' : '上限'),
+                  h('input', {
+                    key: 'slot-1-' + state.slot.kind,
+                    className: 'mss-slotinput' + (state.slot.focus === 1 ? ' on' : ''),
+                    ref: slotRef1,
+                    defaultValue: state.slot.values[1] ?? '',
+                    placeholder: state.slot.kind === 'lim' ? '0' : '1',
+                    onFocus: () => patchPanel({ slot: { ...state.slot, focus: 1 } }),
+                    onChange: (event) => {
+                      const values = state.slot.values.slice();
+                      values[1] = event.target.value;
+                      patchPanel({ slot: { ...state.slot, values } });
+                    },
+                    onKeyDown: (event) => {
+                      if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
+                      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); slotCommit(); }
+                    },
+                  }),
+                ),
               ),
-              h('input', {
-                key: 'slot-input-' + state.slot.kind + '-' + state.slot.index,
-                className: 'mss-slotinput',
-                ref: slotInputRef,
-                defaultValue: state.slot.values[state.slot.index] ?? '',
-                placeholder: state.slot.kind === 'lim'
-                  ? (state.slot.index === 0 ? '极限点，例如 x' : '趋向的值，例如 0')
-                  : (state.slot.index === 0 ? '下限，例如 0' : '上限，例如 1'),
-                onChange: (event) => {
-                  const slot = state.slot;
-                  if (slot === null) return;
-                  const values = slot.values.slice();
-                  values[slot.index] = event.target.value;
-                  patchPanel({ slot: { ...slot, values } });
-                },
-                onKeyDown: (event) => {
-                  if (event.key === 'Escape') { event.stopPropagation(); patchPanel({ slot: null }); return; }
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    slotAdvance();
-                  }
-                },
-              }),
               h('div', { className: 'mss-slotgrid' },
                 GROUPS.find((group) => group.id === 'vars').items.map(([glyph, value]) => h('button', {
                   key: 'slot-var-' + value,
@@ -1018,7 +1030,7 @@ window.__ModuleLoader__.load({
                   onClick: () => slotAppend(digit),
                 }, digit)),
               ),
-              h('div', { className: 'mss-slothint' }, state.slot.index === 0 ? 'Enter 下一个空' : 'Enter 完成并返回'),
+              h('div', { className: 'mss-slothint' }, 'Enter 完成并返回 · 两个空都可以直接点'),
             ),
             h('div', {
               className: 'mss-body',
