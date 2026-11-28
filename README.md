@@ -163,7 +163,13 @@ ull`，不占空间。
 
 ## 安装与更新
 
-插件通过 `link:` 挂在 desktop profile 上，**本文件夹就是唯一源**；改完 `client.js` 后重载页面（`Ctrl+R`）生效，不用重装。
+npm 包（首发 `0.1.1`）：
+
+```powershell
+dsh plugin add dsh-mathpad
+```
+
+从源码/本地开发时，插件通过 `link:` 挂在 desktop profile 上，**本文件夹就是唯一源**；改完 `client.js` 后重载页面（`Ctrl+R`）生效，不用重装。
 
 ## 测试
 
@@ -172,4 +178,4 @@ $env:ELECTRON_RUN_AS_NODE='1'
 & $env:DSH_NODE_EXECUTABLE .\test\smoke.mjs
 ```
 
-覆盖：两个插槽注册、样式挂载、G2 路径闭合、5 个分组共 39 个符号、变量 `x`/`θ`、a–z 字母条展开/收起、Unicode 上标（`sin²x → (sin x)²`）、分式模板、键盘导航（悬停分区→方向键→Enter）、LaTeX（`sin²x`、`θ`、`(sinx)/(1+sinx)`）、退格、Esc、插入复用打开时的光标、版本冲突重试。
+覆盖：5 个页签、71 个符号 + 9 个模板（符号区/模板区）、a–z 字母条、最近 12 条、数字弹窗、清空/光标移动、lim/int/sum/prod 填空与 LaTeX、整符号删除、快捷键 `Ctrl+Shift+M`、直插/TeX 模式、版本冲突重试。

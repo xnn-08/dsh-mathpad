@@ -74,7 +74,7 @@ vm.runInContext(code, context);
 
 assert.ok(registered !== null, 'module loader was not called');
 assert.strictEqual(registered.id, 'dsh-mathpad');
-assert.strictEqual(pkg.version, '0.6.1', 'package.json version must match the client');
+assert.strictEqual(pkg.version, '0.1.1', 'package.json version must match the client');
 
 const plugin = registered.factory(context.require);
 assert.ok(plugin && typeof plugin.apply === 'function', 'plugin.apply missing');
@@ -245,7 +245,7 @@ assert.ok(dialog !== null, 'panel must open after the trigger click');
 
 const versionTag = find(dialog, (node) => node.props && node.props.className === 'mss-version')[0];
 assert.ok(versionTag, 'panel must show its version so a stale module is obvious');
-assert.strictEqual(textOf(versionTag), 'v0.6.1', 'version tag must be v0.6.1');
+assert.strictEqual(textOf(versionTag), 'v0.1.1', 'version tag must be v0.1.1');
 
 // ---- 5 tabs --------------------------------------------------------------
 const tabLabels = nodeListOf(dialog, 'mss-tab').map(textOf);
